@@ -7,6 +7,7 @@ import clip
 import requests
 import torch
 import torch.nn.functional as F
+from torch import nn
 from PIL import Image
 from torchvision import models, transforms
 
@@ -50,7 +51,6 @@ class CLIPModel(BaseModel):
         tensor_image = self.transform(pil_image).unsqueeze(0).to(self.device)
 
         # Encode the list of ImageNet class names
-
         with torch.no_grad():
             image_features = self.model.encode_image(tensor_image)
             image_features = F.normalize(image_features, p=2, dim=1)
@@ -60,7 +60,34 @@ class CLIPModel(BaseModel):
             _, indices = similarity[0].topk(1)
 
             return IDX_TO_LABEL[indices[0].item()]
+        
+class CLIPModelFT(BaseModel):
 
+    def __init__(self):
+        super().__init__()
+        self.model, self.ft_layer, self.transform = self._load_model()
+        self.model.eval()
+        self.ft_layer.eval()
+    
+    def _load_model(self):
+        model, transforms = clip.load("RN50", device=self.device)
+        num_classes = 1000
+        ft_layer = nn.Linear(1024, num_classes).to(self.device)
+        model = model.to(self.device)
+        # load ft_layer
+        ft_layer.load_state_dict(torch.load("finetuned_clip_rn50-9.pth"))
+        return model, ft_layer, transforms
+
+    def get_prediction(self, image: str) -> str:
+        pil_image = Image.open(image).convert("RGB")
+        tensor_image = self.transform(pil_image).unsqueeze(0).to(self.device)
+
+        with torch.no_grad():
+            image_features = self.model.encode_image(tensor_image.half())
+            outputs = self.ft_layer(image_features.float())
+            _, predicted = outputs.max(1)
+
+            return IDX_TO_LABEL[predicted.item()]
 
 class ResNet50Model(BaseModel):
     def __init__(self):
@@ -99,21 +126,28 @@ class ModelFactory:
         assert model_name in [
             "clip_vitb32_zeroshot",
             "resnet50_supervised",
+            "clip_rn50_finetuned"
         ], f"Model does not support {model_name}"
 
         if model_name == "clip_vitb32_zeroshot":
             return CLIPModel()
+        elif model_name == "clip_rn50_finetuned":
+            return CLIPModelFT()
         else:
             return ResNet50Model()
 
 
 if __name__ == "__main__":
-    image = "../../../_deprecated/initial_attempt/532_v1/ILSVRC2012_val_00000241.JPEG"
+    image = "/home/lisabdunlap/VisDiff/data/VisDiffBench/imagenetr/imagenet/n01443537_ILSVRC2012_val_00020436.JPEG"
 
     model = ModelFactory.get_model("clip_vitb32_zeroshot")
     classname = model.get_prediction(image)
     print(classname)
 
     model = ModelFactory.get_model("resnet50_supervised")
+    classname = model.get_prediction(image)
+    print(classname)
+
+    model = ModelFactory.get_model("clip_rn50_finetuned")
     classname = model.get_prediction(image)
     print(classname)

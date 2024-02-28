@@ -6,6 +6,7 @@ from typing import List
 
 import lmdb
 import openai
+from openai import OpenAI
 
 from serve.global_vars import LLM_CACHE_FILE, VICUNA_URL
 from serve.utils_general import get_from_cache, save_to_cache
@@ -26,6 +27,7 @@ def get_llm_output(prompt: str, model: str) -> str:
         "vicuna": VICUNA_URL,
     }
     openai.api_base = api_base[model]
+    client = OpenAI()
 
     if model in ["gpt-3.5-turbo", "gpt-4"]:
         messages = [
@@ -44,19 +46,19 @@ def get_llm_output(prompt: str, model: str) -> str:
     for _ in range(3):
         try:
             if model in ["gpt-3.5-turbo", "gpt-4"]:
-                completion = openai.ChatCompletion.create(
+                completion = client.chat.completions.create(
                     model=model,
                     messages=messages,
                 )
-                response = completion["choices"][0]["message"]["content"]
+                response = completion.choices[0].message.content.strip()
             elif model == "vicuna":
-                completion = openai.Completion.create(
+                completion = client.chat.completions.create(
                     model="lmsys/vicuna-7b-v1.5",
                     prompt=prompt,
                     max_tokens=256,
                     temperature=0,  # TODO: greedy may not be optimal
                 )
-                response = completion["choices"][0]["text"]
+                response = completion.choices[0].message.content.strip()
             save_to_cache(key, response, llm_cache)
             return response
 

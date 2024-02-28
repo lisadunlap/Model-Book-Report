@@ -35,9 +35,31 @@ MANIFEST
 *.manifest
 *.spec
 
+cache/
+serve/global_vars.py
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
+
+# visdiff files
+data/VisDiffBench/
+data/visdiff_data
+data/pairedimagesets
+configs/visdiff_sweeps
+applications/
+checkpoints/
+captions/
+media/
+data/csvs
+imagenet_class_index.json
+notebooks/media/
+sweeps
+caption.py
+caption_things.py
+data/ilsvrc_2024-01-04_1601
+cache/
+LLaVA/
 
 # Unit test / coverage reports
 htmlcov/

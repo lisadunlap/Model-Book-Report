@@ -1,0 +1,18 @@
+project: VisDiff-ImagenetV2
+
+data:
+  name: imagenetV2
+  group1: imagenet_v2
+  group2: imagenet
+
+proposer:  # LLM Proposer
+  method: LLMProposer  # how to propose hypotheses
+  model: gpt-4  # model used in method
+  num_rounds: 10  # number of rounds to propose
+  num_samples: 50  # number of samples per group to use
+  sampling_method: random  # how to sample
+  num_hypotheses: 5  # number of hypotheses to generate per round
+  prompt: CLIP_FRIENDLY  # prompt to use
+
+evaluator:
+  method: NullEvaluator  # no evaluation since no GT

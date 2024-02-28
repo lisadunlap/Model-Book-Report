@@ -41,8 +41,8 @@ def plot_distributions(similarity_A_C, similarity_B_C, hypothesis=""):
     ax[0].legend()
 
     # KDE plot
-    sns.kdeplot(similarity_A_C, fill=True, ax=ax[1], label="Group A")
-    sns.kdeplot(similarity_B_C, fill=True, ax=ax[1], label="Group B")
+    sns.kdeplot(similarity_A_C, fill=True, ax=ax[1], label="Group A", warn_singular=False)
+    sns.kdeplot(similarity_B_C, fill=True, ax=ax[1], label="Group B", warn_singular=False)
     ax[1].set_title(
         f"Kernel Density Estimation of Cosine Similarities to \n{hypothesis}"
     )
@@ -110,6 +110,10 @@ def t_test(d_A, d_B):
 class Ranker:
     def __init__(self, args: Dict):
         self.args = args
+        if "group_names" in args:
+            self.group_names = args['group_names']
+        else:
+            self.group_names = ["Group A", "Group B"]
 
     def score_hypothesis(self, hypothesis: str, dataset: List[dict]) -> List[float]:
         raise NotImplementedError
@@ -153,6 +157,13 @@ class Ranker:
             plot_distributions(scores1, scores2, hypothesis=hypothesis)
         )
         return metrics
+    
+class NullRanker(Ranker):
+    def __init__(self, args: Dict):
+        super().__init__(args)
+
+    def score_hypothesis(self, hypothesis: str, dataset: List[dict]) -> List[float]:
+        return [0.0] * len(dataset)
 
 
 class CLIPRanker(Ranker):
@@ -246,7 +257,91 @@ OUTPUT:"""
                 invalid_scores.append(output)
         print(f"Percent Invalid {len(invalid_scores) / len(dataset)}")
         return scores
+    
 
+class LLMOnlyRanker(Ranker):
+    def __init__(self, args: Dict):
+        super().__init__(args)
+
+    def score_hypothesis(self, hypothesis: str, dataset: List[dict]) -> List[float]:
+        scores = []
+        invalid_scores = []
+        eval_size = 100
+        for i in trange(0, eval_size):
+            item = dataset[i]
+            text = item["answer"]
+            prompt = f"""Check whether the TEXT satisfies a PROPERTY. Respond with Yes or No. When uncertain, output No. 
+                Now complete the following example -
+                input: PROPERTY: {hypothesis}
+                TEXT: {text}
+                output:
+                """
+            output = get_llm_output(prompt, self.args["model"])
+            if "yes" in output.lower():
+                scores.append(1)
+            elif "no" in output.lower():
+                scores.append(0)
+            else:
+                invalid_scores.append(output)
+        print(f"Percent Invalid {len(invalid_scores) / eval_size}")
+        return scores
+    
+from components.clustering import cluster_with_gpt, log_clusters
+class ClusterRanker(Ranker):
+
+    def score_hypothesis(self, hypothesis: str, dataset: List[Dict]) -> List[float]:
+        response, counts = cluster_with_gpt([hypothesis])
+        log_clusters(counts)
+
+    def rerank_hypotheses(
+        self, hypotheses: List[str], dataset1: List[dict], dataset2: List[dict]
+    ) -> List[dict]:
+        response, counts = cluster_with_gpt(hypotheses)
+        log_clusters(counts)
+        scored_hypotheses = sorted(counts, key=lambda x: x["count"], reverse=True)
+        print(scored_hypotheses)
+        return scored_hypotheses
+    
+from components.clustering import cluster_with_gpt, log_clusters, batch_cluster_with_gpt
+class DualClusterRanker(Ranker):
+
+    def rerank_hypotheses(
+        self, hypotheses: List[str], dataset1: List[dict], dataset2: List[dict]
+    ) -> List[dict]:
+        print(hypotheses)
+        print('*********************')
+        group_a_hypotheses = hypotheses["Model A contains more"]
+        group_b_hypotheses = hypotheses["Model B contains more"]
+        # mix the hypotheses and keep a lsit of which group they belong to
+        mixed_hypotheses = group_a_hypotheses + group_b_hypotheses
+        random.shuffle(mixed_hypotheses)
+        # mixed_groups = [0] * len(group_a_hypotheses) + [1] * len(group_b_hypotheses)
+        # zipped = list(zip(mixed_hypotheses, mixed_groups))
+        # random.shuffle(zipped)
+        # mixed_hypotheses, mixed_groups = zip(*zipped)
+        response, counts = batch_cluster_with_gpt(mixed_hypotheses)
+        log_clusters(counts)
+        # look through the counts and assign the hypotheses to the groups
+        results = []
+        for hpy in counts:
+            group_a_hyp = [h for h in hpy['examples'] if h in group_a_hypotheses]
+            group_b_hyp = [h for h in hpy['examples'] if h in group_b_hypotheses]
+            group_a_counts, group_b_counts = len(group_a_hyp), len(group_b_hyp)
+            # group_a_counts = sum([1 for h in hpy['examples'] if h in group_a_hypotheses])
+            # group_b_counts = sum([1 for h in hpy['examples'] if h in group_b_hypotheses])
+            hpy[f'{self.group_names[0]}_counts'] = group_a_counts
+            hpy[f'{self.group_names[1]}_counts'] = group_b_counts
+            hpy[f'{self.group_names[0]}_proportion'] = round(group_a_counts / len(group_a_hypotheses), 3)
+            hpy[f'{self.group_names[1]}_proportion'] = round(group_b_counts / len(group_b_hypotheses), 3)
+            hpy[f'{self.group_names[0]}_differences'] = group_a_hyp
+            hpy[f'{self.group_names[1]}_differences'] = group_b_hyp
+            hpy['diff_score'] = round(abs(hpy[f'{self.group_names[0]}_proportion'] - hpy[f'{self.group_names[1]}_proportion']), 3)
+            results.append(hpy)
+        scored_hypotheses = sorted(results, key=lambda x: x["diff_score"], reverse=True)
+        # remove the examples from the results
+        for hpy in scored_hypotheses:
+            del hpy['examples']
+        return scored_hypotheses
 
 class NullRanker(Ranker):
     def __init__(self, args: Dict):

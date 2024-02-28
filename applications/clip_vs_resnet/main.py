@@ -8,25 +8,17 @@ from tqdm import tqdm
 
 
 def get_model_outputs():
-    model1 = ModelFactory.get_model("clip_vitb32_zeroshot")
+    model1 = ModelFactory.get_model("clip_rn50_finetuned")
     model2 = ModelFactory.get_model("resnet50_supervised")
 
-    dataset = pd.read_csv("../imagenet-v2.csv").to_dict("records")
-
-    # def process_fn(dataset: List[Dict]):
-    #     new_dataset = []
-    #     for item in dataset:
-    #         if item["imagenet_label_index"] == 532:
-    #             new_dataset.append(item)
-
-    #     return new_dataset
+    dataset = pd.read_csv("./data/imagenet.csv").to_dict("records")
 
     # dataset = process_fn(dataset)
     print(len(dataset))
 
     image_paths = [item["path"] for item in dataset]
 
-    label = dataset[0]["imagenet_label"].replace("_", " ")
+    # label = dataset[0]["imagenet_label"].replace("_", " ")
     predictions1 = [model1.get_prediction(image) for image in tqdm(image_paths)]
     predictions2 = [model2.get_prediction(image) for image in tqdm(image_paths)]
 
@@ -39,7 +31,7 @@ def get_model_outputs():
         )
 
     df = pd.DataFrame(dataset)
-    df.to_csv("imagenet-v2-predictions.csv", index=False)
+    df.to_csv("imagenet-v2-predictions-new.csv", index=False)
 
 
 if __name__ == "__main__":
