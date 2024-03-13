@@ -5,14 +5,13 @@ import click
 import pandas as pd
 from omegaconf import OmegaConf
 from tqdm import tqdm
+import ast
 
 import wandb
 from components.evaluator import GPTEvaluator, NullEvaluator
 from components.proposer import (
     LLMProposer,
     LLMProposerDiffusion,
-    VLMFeatureProposer,
-    VLMProposer,
     LLMPairwiseProposerWithQuestion,
     DualSidedLLMProposer
 )
@@ -68,11 +67,14 @@ def propose(args: Dict, dataset1: List[Dict], dataset2: List[Dict]) -> List[str]
 
     proposer = eval(proposer_args["method"])(proposer_args)
     hypotheses, logs, images = proposer.propose(dataset1, dataset2)
-    print(hypotheses)
     if args["wandb"]:
         wandb.log({"logs": wandb.Table(dataframe=pd.DataFrame(logs))})
         wandb.log({"llm_outputs": wandb.Table(dataframe=pd.DataFrame(images))})
-    return hypotheses
+    all_outputs = pd.DataFrame(images)
+    all_outputs.to_csv('all_outputs.csv', index=False)
+    # all_outputs['group_1_hypotheses'] = all_outputs['group_1_hypotheses'].apply(lambda x: ast.literal_eval(x[0]))
+    # all_outputs['group_2_hypotheses'] = all_outputs['group_2_hypotheses'].apply(lambda x: ast.literal_eval(x[0]))
+    return hypotheses, all_outputs
 
 
 def rank(
@@ -90,20 +92,16 @@ def rank(
 
     scored_hypotheses = ranker.rerank_hypotheses(hypotheses, dataset1, dataset2)
     if args["wandb"]:
-        table_hypotheses = wandb.Table(dataframe=pd.DataFrame(scored_hypotheses))
-        wandb.log({"scored hypotheses": table_hypotheses})
+        # table_hypotheses = wandb.Table(dataframe=pd.DataFrame(scored_hypotheses))
+        print(scored_hypotheses.keys())
+        for key in scored_hypotheses.keys():
+            table_hypotheses = wandb.Table(dataframe=pd.DataFrame(scored_hypotheses[key]))
+            wandb.log({f"scored {key}": table_hypotheses})
+        # make the keys of the dictionary the columns of the dataframe
+        df = pd.concat([pd.DataFrame(scored_hypotheses[key]) for key in scored_hypotheses.keys()])
+        df.to_csv('scored_hypotheses.csv', index=False)
 
-    if args["evaluator"]["method"] != "NullEvaluator":
-        scored_groundtruth = ranker.rerank_hypotheses(
-            group_names,
-            dataset1,
-            dataset2,
-        )
-        if args["wandb"]:
-            table_groundtruth = wandb.Table(dataframe=pd.DataFrame(scored_groundtruth))
-            wandb.log({"scored groundtruth": table_groundtruth})
-
-    return [hypothesis["hypothesis"] for hypothesis in scored_hypotheses]
+    return []
 
 
 @click.command()
@@ -118,7 +116,7 @@ def main(config):
     # print(dataset1, dataset2, group_names)
 
     logging.info("Proposing hypotheses...")
-    hypotheses = propose(args, dataset1, dataset2)
+    hypotheses, logs = propose(args, dataset1, dataset2)
     print(hypotheses)
     print("######################################")
     print("######################################")

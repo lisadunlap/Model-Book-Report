@@ -204,9 +204,14 @@ class DualSidedLLMProposer(LLMPairwiseProposerWithQuestion):
         output = get_llm_output(prompt, self.args["model"])
         print(output)
         print("-----------------------")
+        output = output[output.find("{") : output.rfind("}")+1]
         hypotheses = ast.literal_eval(output)
         logs = {"prompt": prompt, "output": output}
-        questions = {"question": [item['question'] for item in sampled_dataset1], f"group_1_answers": [item['answer'] for item in sampled_dataset1], f"group_2_answers": [item['answer'] for item in sampled_dataset2]}
+        questions = {"question": [item['question'] for item in sampled_dataset1], 
+                     f"group_1_answers": [item['answer'] for item in sampled_dataset1], 
+                     f"group_2_answers": [item['answer'] for item in sampled_dataset2],
+                     "group_1_hypotheses": [str(hypotheses['Model A contains more'])],
+                     "group_2_hypotheses": [str(hypotheses['Model B contains more'])]}
         return hypotheses, logs, questions
     
     def propose(
@@ -220,6 +225,7 @@ class DualSidedLLMProposer(LLMPairwiseProposerWithQuestion):
         all_hypotheses = {"Model A contains more": [], "Model B contains more": []}
         all_logs = []
         all_questions = []
+        all_raw_hypotheses = []
         random.seed(self.args["seed"])
         for i in range(self.args["num_rounds"]):
             sampled_dataset1 = self.sample(dataset1, dataset2, self.args["num_samples"])
@@ -296,46 +302,6 @@ class LLMProposerDiffusion(LLMProposer):
         logs = {"prompt": prompt, "output": output}
         return hypotheses, logs
 
-
-class VLMProposer(Proposer):
-    """
-    Concatenate images and ask VLM to find differences
-    """
-
-    def __init__(self, args: Dict):
-        super().__init__(args)
-        self.prompt = getattr(prompts, args["prompt"])
-
-    def get_hypotheses(
-        self, sampled_dataset1: List[Dict], sampled_dataset2: List[Dict]
-    ) -> Tuple[List[str], Dict]:
-        assert len(sampled_dataset1) == len(
-            sampled_dataset2
-        ), "Groups must be of equal size"
-        assert len(sampled_dataset1) <= 20, "Groups must be smaller than 20"
-        filenames = [item["path"] for item in sampled_dataset1 + sampled_dataset2]
-        save_name = hashlib.sha256(json.dumps(filenames).encode()).hexdigest()
-
-        image_path = f"cache/images/{save_name}.png"
-        os.makedirs(os.path.dirname(image_path), exist_ok=True)
-        save_data_diff_image(sampled_dataset1, sampled_dataset2, image_path)
-        output = get_vlm_output(image_path, self.prompt, self.args["model"])
-        output = output.replace("</s>", " ").strip()  # remove </s> token for llava
-        hypotheses = [line.replace("* ", "") for line in output.splitlines()]
-        logs = {"image": image_path, "prompt": self.prompt, "output": output}
-        return hypotheses, logs
-
-
-class VLMFeatureProposer(Proposer):
-    def __init__(self, args: Dict):
-        super().__init__(args)
-
-    def get_hypotheses(
-        self, sampled_dataset1: List[Dict], sampled_dataset2: List[Dict]
-    ) -> Tuple[List[str], Dict]:
-        diff_caption = get_embed_caption_blip(sampled_dataset1, sampled_dataset2)
-        logs = {"output": diff_caption}
-        return diff_caption, logs
 
 
 def test_proposers():

@@ -296,7 +296,7 @@ class ClusterRanker(Ranker):
     def rerank_hypotheses(
         self, hypotheses: List[str], dataset1: List[dict], dataset2: List[dict]
     ) -> List[dict]:
-        response, counts = cluster_with_gpt(hypotheses)
+        response, counts = cluster_with_gpt(hypotheses, hardcode=True)
         log_clusters(counts)
         scored_hypotheses = sorted(counts, key=lambda x: x["count"], reverse=True)
         print(scored_hypotheses)
@@ -304,6 +304,24 @@ class ClusterRanker(Ranker):
     
 from components.clustering import cluster_with_gpt, log_clusters, batch_cluster_with_gpt
 class DualClusterRanker(Ranker):
+
+    def log_subcluster(self, counts, group_a_hypotheses, group_b_hypotheses):
+        results = []
+        for sub_hpy in counts:
+            if sub_hpy["count"] > 5:
+                group_a_hyp = [h for h in group_a_hypotheses if h in sub_hpy['examples']]
+                group_b_hyp = [h for h in group_b_hypotheses if h in sub_hpy['examples']]
+                group_a_counts, group_b_counts = len(group_a_hyp), len(group_b_hyp)
+                sub_hpy[f'{self.group_names[0]}_counts'] = group_a_counts
+                sub_hpy[f'{self.group_names[1]}_counts'] = group_b_counts
+                sub_hpy[f'{self.group_names[0]}_proportion'] = round(group_a_counts / len(group_a_hypotheses), 3)
+                sub_hpy[f'{self.group_names[1]}_proportion'] = round(group_b_counts / len(group_b_hypotheses), 3)
+                sub_hpy['diff_score'] = round(abs(sub_hpy[f'{self.group_names[0]}_proportion'] - sub_hpy[f'{self.group_names[1]}_proportion']), 3)
+                sub_hpy[f'{self.group_names[0]}_differences'] = group_a_hyp
+                sub_hpy[f'{self.group_names[1]}_differences'] = group_b_hyp
+                results.append(sub_hpy)
+
+        return results
 
     def rerank_hypotheses(
         self, hypotheses: List[str], dataset1: List[dict], dataset2: List[dict]
@@ -315,32 +333,43 @@ class DualClusterRanker(Ranker):
         # mix the hypotheses and keep a lsit of which group they belong to
         mixed_hypotheses = group_a_hypotheses + group_b_hypotheses
         random.shuffle(mixed_hypotheses)
-        # mixed_groups = [0] * len(group_a_hypotheses) + [1] * len(group_b_hypotheses)
-        # zipped = list(zip(mixed_hypotheses, mixed_groups))
-        # random.shuffle(zipped)
-        # mixed_hypotheses, mixed_groups = zip(*zipped)
-        response, counts = batch_cluster_with_gpt(mixed_hypotheses)
+        clustering_responces = []
+        response, counts = batch_cluster_with_gpt(mixed_hypotheses, hardcode=False)
         log_clusters(counts)
         # look through the counts and assign the hypotheses to the groups
-        results = []
+        scored_hypotheses = {}
         for hpy in counts:
-            group_a_hyp = [h for h in hpy['examples'] if h in group_a_hypotheses]
-            group_b_hyp = [h for h in hpy['examples'] if h in group_b_hypotheses]
-            group_a_counts, group_b_counts = len(group_a_hyp), len(group_b_hyp)
-            # group_a_counts = sum([1 for h in hpy['examples'] if h in group_a_hypotheses])
-            # group_b_counts = sum([1 for h in hpy['examples'] if h in group_b_hypotheses])
-            hpy[f'{self.group_names[0]}_counts'] = group_a_counts
-            hpy[f'{self.group_names[1]}_counts'] = group_b_counts
-            hpy[f'{self.group_names[0]}_proportion'] = round(group_a_counts / len(group_a_hypotheses), 3)
-            hpy[f'{self.group_names[1]}_proportion'] = round(group_b_counts / len(group_b_hypotheses), 3)
-            hpy[f'{self.group_names[0]}_differences'] = group_a_hyp
-            hpy[f'{self.group_names[1]}_differences'] = group_b_hyp
-            hpy['diff_score'] = round(abs(hpy[f'{self.group_names[0]}_proportion'] - hpy[f'{self.group_names[1]}_proportion']), 3)
-            results.append(hpy)
-        scored_hypotheses = sorted(results, key=lambda x: x["diff_score"], reverse=True)
-        # remove the examples from the results
-        for hpy in scored_hypotheses:
-            del hpy['examples']
+            cluster_name = hpy['hypothesis']
+            if hpy["count"] > 10:
+                results = []
+                response, sub_counts = batch_cluster_with_gpt(hpy['examples'], cache=False)
+                # for sub_hpy in counts:
+                #     if sub_hpy["count"] > 5:
+                #         # group_a_hyp = [h for h in hpy['examples'] if h in group_a_hypotheses]
+                #         # group_b_hyp = [h for h in hpy['examples'] if h in group_b_hypotheses]
+                #         group_a_hyp = [h for h in group_a_hypotheses if h in sub_hpy['examples']]
+                #         group_b_hyp = [h for h in group_b_hypotheses if h in sub_hpy['examples']]
+                #         group_a_counts, group_b_counts = len(group_a_hyp), len(group_b_hyp)
+                #         sub_hpy[f'{self.group_names[0]}_counts'] = group_a_counts
+                #         sub_hpy[f'{self.group_names[1]}_counts'] = group_b_counts
+                #         sub_hpy[f'{self.group_names[0]}_proportion'] = round(group_a_counts / len(group_a_hypotheses), 3)
+                #         sub_hpy[f'{self.group_names[1]}_proportion'] = round(group_b_counts / len(group_b_hypotheses), 3)
+                #         sub_hpy['diff_score'] = round(abs(sub_hpy[f'{self.group_names[0]}_proportion'] - sub_hpy[f'{self.group_names[1]}_proportion']), 3)
+                #         sub_hpy[f'{self.group_names[0]}_differences'] = group_a_hyp
+                #         sub_hpy[f'{self.group_names[1]}_differences'] = group_b_hyp
+                #         results.append(sub_hpy)
+                results = self.log_subcluster(sub_counts, group_a_hypotheses, group_b_hypotheses)
+                scored_hypotheses[cluster_name] = sorted(results, key=lambda x: x["diff_score"], reverse=True)
+                print(f"---------------------- {cluster_name} ----------------------")
+                print(scored_hypotheses[cluster_name])
+                print(f"-----------------------------------------------------------------")
+                print(f"-----------------------------------------------------------------")
+                # remove the examples from the results
+                for hpy in scored_hypotheses[cluster_name]:
+                    try:
+                        del hpy['examples']
+                    except:
+                        print(hpy)
         return scored_hypotheses
 
 class NullRanker(Ranker):

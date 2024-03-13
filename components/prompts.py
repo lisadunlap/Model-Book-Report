@@ -303,6 +303,8 @@ LLM_ONLY_PROMPT_DUAL = """
 
    {{"Model A contains more": ["casual language", "lists with repeating phrases", "polite language"], "Model B contains more": ["formal language", "short responses"]}}
 
+   If there are no differences, write an expty list. For example, {{"Model A contains more": [], "Model B contains more": []}} 
+
     Each difference should be less than 10 words. Your response:
 """
 
