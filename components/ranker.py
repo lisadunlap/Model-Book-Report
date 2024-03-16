@@ -305,12 +305,29 @@ class ClusterRanker(Ranker):
 from components.clustering import cluster_with_gpt, log_clusters, batch_cluster_with_gpt
 class DualClusterRanker(Ranker):
 
+    @staticmethod
+    def count_matching_lists_with_matches(hypotheses, examples):
+        first_matches = []  # List to hold the first matching string for each list where a match is found
+        
+        for example_list in examples:
+            # Find the first string in the current list that is in hypotheses
+            for h in hypotheses:
+                if h in example_list:
+                    first_matches.append(h)
+                    break
+                
+        return first_matches
+
+
     def log_subcluster(self, counts, group_a_hypotheses, group_b_hypotheses):
         results = []
         for sub_hpy in counts:
             if sub_hpy["count"] > 5:
-                group_a_hyp = [h for h in group_a_hypotheses if h in sub_hpy['examples']]
-                group_b_hyp = [h for h in group_b_hypotheses if h in sub_hpy['examples']]
+                # group_a_hyp = [h for h in group_a_hypotheses if h in sub_hpy['examples']]
+                # group_b_hyp = [h for h in group_b_hypotheses if h in sub_hpy['examples']]
+                print(group_a_hypotheses)
+                group_a_hyp = self.count_matching_lists_with_matches(sub_hpy['examples'], group_a_hypotheses)
+                group_b_hyp = self.count_matching_lists_with_matches(sub_hpy['examples'], group_b_hypotheses)
                 group_a_counts, group_b_counts = len(group_a_hyp), len(group_b_hyp)
                 sub_hpy[f'{self.group_names[0]}_counts'] = group_a_counts
                 sub_hpy[f'{self.group_names[1]}_counts'] = group_b_counts
@@ -323,13 +340,29 @@ class DualClusterRanker(Ranker):
 
         return results
 
+    def is_in_cluster(self, hypotheses, examples):
+        ret = []
+        for hypothesis in hypotheses:
+            flag = False
+            for e in examples:
+                if not flag:
+                    if hypothesis == e:
+                        flag = True
+                        ret.append(hypothesis)
+        return ret
+
     def rerank_hypotheses(
         self, hypotheses: List[str], dataset1: List[dict], dataset2: List[dict]
     ) -> List[dict]:
+        random.seed(self.args["seed"])
         print(hypotheses)
         print('*********************')
-        group_a_hypotheses = hypotheses["Model A contains more"]
-        group_b_hypotheses = hypotheses["Model B contains more"]
+        # flatten list of list of str (hypotheses["Model A contains more"]) to list of str
+        print(hypotheses["Model B contains more"])
+        group_a_hypotheses = [item for sublist in hypotheses["Model A contains more"] for item in sublist]
+        group_b_hypotheses = [item for sublist in hypotheses["Model B contains more"] for item in sublist]
+        # group_a_hypotheses = hypotheses["Model A contains more"]
+        # group_b_hypotheses = hypotheses["Model B contains more"]
         # mix the hypotheses and keep a lsit of which group they belong to
         mixed_hypotheses = group_a_hypotheses + group_b_hypotheses
         random.shuffle(mixed_hypotheses)
@@ -338,26 +371,12 @@ class DualClusterRanker(Ranker):
         log_clusters(counts)
         # look through the counts and assign the hypotheses to the groups
         scored_hypotheses = {}
+        results = self.log_subcluster(counts, hypotheses["Model A contains more"], hypotheses["Model B contains more"])
         for hpy in counts:
             cluster_name = hpy['hypothesis']
             if hpy["count"] > 10:
                 results = []
-                response, sub_counts = batch_cluster_with_gpt(hpy['examples'], cache=False)
-                # for sub_hpy in counts:
-                #     if sub_hpy["count"] > 5:
-                #         # group_a_hyp = [h for h in hpy['examples'] if h in group_a_hypotheses]
-                #         # group_b_hyp = [h for h in hpy['examples'] if h in group_b_hypotheses]
-                #         group_a_hyp = [h for h in group_a_hypotheses if h in sub_hpy['examples']]
-                #         group_b_hyp = [h for h in group_b_hypotheses if h in sub_hpy['examples']]
-                #         group_a_counts, group_b_counts = len(group_a_hyp), len(group_b_hyp)
-                #         sub_hpy[f'{self.group_names[0]}_counts'] = group_a_counts
-                #         sub_hpy[f'{self.group_names[1]}_counts'] = group_b_counts
-                #         sub_hpy[f'{self.group_names[0]}_proportion'] = round(group_a_counts / len(group_a_hypotheses), 3)
-                #         sub_hpy[f'{self.group_names[1]}_proportion'] = round(group_b_counts / len(group_b_hypotheses), 3)
-                #         sub_hpy['diff_score'] = round(abs(sub_hpy[f'{self.group_names[0]}_proportion'] - sub_hpy[f'{self.group_names[1]}_proportion']), 3)
-                #         sub_hpy[f'{self.group_names[0]}_differences'] = group_a_hyp
-                #         sub_hpy[f'{self.group_names[1]}_differences'] = group_b_hyp
-                #         results.append(sub_hpy)
+                response, sub_counts = batch_cluster_with_gpt(hpy['examples'], cache=True)
                 results = self.log_subcluster(sub_counts, group_a_hypotheses, group_b_hypotheses)
                 scored_hypotheses[cluster_name] = sorted(results, key=lambda x: x["diff_score"], reverse=True)
                 print(f"---------------------- {cluster_name} ----------------------")
@@ -370,6 +389,33 @@ class DualClusterRanker(Ranker):
                         del hpy['examples']
                     except:
                         print(hpy)
+        return scored_hypotheses
+
+from components.clustering import cluster_with_gpt, log_clusters, batch_cluster_with_gpt
+class DualClusterRanker2(DualClusterRanker):
+
+    def rerank_hypotheses(
+        self, hypotheses: List[str], dataset1: List[dict], dataset2: List[dict]
+    ) -> List[dict]:
+        random.seed(self.args["seed"])
+        print(hypotheses)
+        group_a_hypotheses = [item for sublist in hypotheses["Model A contains more"] for item in sublist]
+        group_b_hypotheses = [item for sublist in hypotheses["Model B contains more"] for item in sublist]
+        # mix the hypotheses and keep a lsit of which group they belong to
+        mixed_hypotheses = group_a_hypotheses + group_b_hypotheses
+        random.shuffle(mixed_hypotheses)
+        clustering_responces = []
+        response, counts = batch_cluster_with_gpt(mixed_hypotheses, hardcode=False)
+        log_clusters(counts)
+        # look through the counts and assign the hypotheses to the groups
+        scored_hypotheses = {}
+        results = self.log_subcluster(counts, hypotheses["Model A contains more"], hypotheses["Model B contains more"])
+        scored_hypotheses["all"] = sorted(results, key=lambda x: x["diff_score"], reverse=True)
+        for hpy in scored_hypotheses['all']:
+            try:
+                del hpy['examples']
+            except:
+                print(hpy)
         return scored_hypotheses
 
 class NullRanker(Ranker):

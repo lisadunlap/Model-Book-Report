@@ -308,6 +308,23 @@ LLM_ONLY_PROMPT_DUAL = """
     Each difference should be less than 10 words. Your response:
 """
 
+
+LLM_ONLY_PROMPT_DUAL2 = """
+    The following are the result of asking two different language models to generate an answer for the same questions:
+
+    {text}
+
+    I am a machine learning researcher trying to figure out the major differences between these two groups so I can better understand my data.
+
+    Please output a list dictionary of distinct concepts or styles that appear more in the outputs of Model A compared to Model B and vice versa. An example of the desired output format:
+
+   {{"Model A contains more": ["lack of reponse", ...], "Model B contains more": ["repeating phrases", ...]}}
+
+   If there are no differences, write an expty list. For example, {{"Model A contains more": [], "Model B contains more": []}} 
+
+    Each difference should be less than 10 words. Your response:
+"""
+
 LLM_ONLY_PROMPT_WRITING = """
     The following are the result of asking two different language models to generate an answer for the same writing questions:
 

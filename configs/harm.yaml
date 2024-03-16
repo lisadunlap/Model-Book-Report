@@ -1,26 +1,26 @@
-project: LLMEval
+project: LLMEvalHarm
 wandb: true  # whether to log to wandb
 seed: 1  # random seed
 
 data:
   root: ./data
-  name: claude_gpt  # name of dataset
-  group1: "claude-2_1"  # name of group 1
-  group2: "gpt-4"  # name of group 2
+  name: harm  # name of dataset
+  group1: "base-base"  # name of group 1
+  group2: "base-sft"  # name of group 2
   purity: 1.0  # how much of each concept is in each group (1.0 means perfect seperation, 0.5 means perfect mix)
   # subset: palm-2 # if you want to use a subset of the dataset, set this to name of the desired subset value
 
 proposer:  # LLM Proposer
-  method: DualSidedLLMProposer  # how to propose hypotheses
-  model: gpt-4  # model used in method
-  num_rounds: 100 # number of rounds to propose
+  method: DualSidedLLMProposerNoQuestion  # how to propose hypotheses
+  model: gpt-3.5-turbo  # model used in method
+  num_rounds: 400 # number of rounds to propose
   num_samples: 1  # number of samples per group to use
   sampling_method: random  # how to sample
   num_hypotheses: 3  # number of hypotheses to generate per round
-  prompt: LLM_ONLY_PROMPT_DUAL
+  prompt: LLM_ONLY_PROMPT_DUAL2
 
 ranker:  # LLM Ranker 
-  method: DualClusterRanker
+  method: DualClusterRanker2
 
 evaluator:
   method: NullEvaluator  # how to evaluate hypotheses
