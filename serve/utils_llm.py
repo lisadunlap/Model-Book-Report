@@ -20,25 +20,28 @@ llm_cache = lmdb.open(LLM_CACHE_FILE, map_size=int(1e11))
 openai.api_key = os.environ["OPENAI_API_KEY"]
 
 
-def get_llm_output(prompt: str, model: str) -> str:
+def get_llm_output(prompt: str, model: str, cache = True, system_prompt = None) -> str:
+    print("HERE")
+    print("systems prompt ", system_prompt)
     api_base = {
         "gpt-3.5-turbo": "https://api.openai.com/v1",
         "gpt-4": "https://api.openai.com/v1",
         "vicuna": VICUNA_URL,
+        "gpt-3.5-turbo-0125": "https://api.openai.com/v1",
     }
     openai.api_base = api_base[model]
     client = OpenAI()
 
     if model in ["gpt-3.5-turbo", "gpt-4"]:
         messages = [
-            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "system", "content": "You are a helpful assistant." if not system_prompt else system_prompt},
             {"role": "user", "content": prompt},
         ]
     else:
         messages = prompt
     key = json.dumps([model, messages])
 
-    cached_value = get_from_cache(key, llm_cache)
+    cached_value = get_from_cache(key, llm_cache) if cache else None
     if cached_value is not None:
         logging.debug(f"LLM Cache Hit")
         return cached_value

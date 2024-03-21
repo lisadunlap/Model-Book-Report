@@ -165,100 +165,6 @@ class NullRanker(Ranker):
     def score_hypothesis(self, hypothesis: str, dataset: List[dict]) -> List[float]:
         return [0.0] * len(dataset)
 
-
-class CLIPRanker(Ranker):
-    def __init__(self, args: Dict):
-        super().__init__(args)
-
-    def score_hypothesis(self, hypothesis: str, dataset: List[dict]) -> List[float]:
-        image_features = get_embeddings(
-            [item["path"] for item in dataset], self.args["clip_model"], "image"
-        )
-        text_features = get_embeddings([hypothesis], self.args["clip_model"], "text")
-        similarity = image_features @ text_features.T
-        scores = similarity.squeeze(1).tolist()
-        return scores
-
-
-class VLMRanker(Ranker):
-    def __init__(self, args: Dict):
-        super().__init__(args)
-
-    def score_hypothesis(self, hypothesis: str, dataset: List[dict]) -> List[float]:
-        scores = []
-        invalid_scores = []
-        for i in trange(0, len(dataset)):
-            item = dataset[i]
-            prompt = f"Does this image contain {hypothesis.replace('and ', '')}?"  # TODO: why this prompt
-            output = get_vlm_output(item["path"], prompt, self.args["model"])
-            if "yes" in output.lower():
-                scores.append(1)
-            elif "no" in output.lower():
-                scores.append(0)
-            else:
-                invalid_scores.append(output)
-        print(f"Percent Invalid {len(invalid_scores) / len(dataset)}")
-        return scores
-
-
-class LLMRanker(Ranker):
-    def __init__(self, args: Dict):
-        super().__init__(args)
-
-    def score_hypothesis(self, hypothesis: str, dataset: List[dict]) -> List[float]:
-        scores = []
-        invalid_scores = []
-        for i in trange(0, len(dataset)):
-            item = dataset[i]
-            caption = (
-                get_vlm_output(
-                    item["path"],
-                    self.args["captioner_prompt"],
-                    self.args["captioner_model"],
-                )
-                .replace("\n", " ")
-                .strip()
-            )
-            prompt = f"""Given a caption and a concept, respond with yes or no.
-Here are 5 examples for the concept "spider and a flower":
-INPUT: a spider sitting on top of a purple flower
-OUTPUT: yes
-INPUT: a yellow and black spider with a web in the background
-OUTPUT: no
-INPUT: a arachnid with a white flower
-OUTPUT: yes
-INPUT: a spider is walking on the ground in the grass
-OUTPUT: no
-INPUT: two yellow and black spiders
-OUTPUT: no
-
-Here are 6 examples for the concept "an ipod in the forest":
-INPUT: a smartphone in the forest
-OUTPUT: yes
-INPUT: a white apple ipad sitting on top of a wooden table
-OUTPUT: no
-INPUT: an ipod near some trees
-OUTPUT: yes
-INPUT: a smartphone with apps
-OUTPUT: no
-INPUT: a pink mp3 player sitting on top of a book
-OUTPUT: no
-INPUT: an ipod sitting on a white surface
-OUTPUT: no
-
-Given the caption "{caption}" and the concept "{hypothesis}", respond with either the word yes or no ONLY.
-OUTPUT:"""
-            output = get_llm_output(prompt, self.args["model"])
-            if "yes" in output.lower():
-                scores.append(1)
-            elif "no" in output.lower():
-                scores.append(0)
-            else:
-                invalid_scores.append(output)
-        print(f"Percent Invalid {len(invalid_scores) / len(dataset)}")
-        return scores
-    
-
 class LLMOnlyRanker(Ranker):
     def __init__(self, args: Dict):
         super().__init__(args)
@@ -286,22 +192,6 @@ class LLMOnlyRanker(Ranker):
         print(f"Percent Invalid {len(invalid_scores) / eval_size}")
         return scores
     
-from components.clustering import cluster_with_gpt, log_clusters
-class ClusterRanker(Ranker):
-
-    def score_hypothesis(self, hypothesis: str, dataset: List[Dict]) -> List[float]:
-        response, counts = cluster_with_gpt([hypothesis])
-        log_clusters(counts)
-
-    def rerank_hypotheses(
-        self, hypotheses: List[str], dataset1: List[dict], dataset2: List[dict]
-    ) -> List[dict]:
-        response, counts = cluster_with_gpt(hypotheses, hardcode=True)
-        log_clusters(counts)
-        scored_hypotheses = sorted(counts, key=lambda x: x["count"], reverse=True)
-        print(scored_hypotheses)
-        return scored_hypotheses
-    
 from components.clustering import cluster_with_gpt, log_clusters, batch_cluster_with_gpt
 class DualClusterRanker(Ranker):
 
@@ -317,7 +207,6 @@ class DualClusterRanker(Ranker):
                     break
                 
         return first_matches
-
 
     def log_subcluster(self, counts, group_a_hypotheses, group_b_hypotheses):
         results = []
@@ -418,13 +307,6 @@ class DualClusterRanker2(DualClusterRanker):
                 print(hpy)
         return scored_hypotheses
 
-class NullRanker(Ranker):
-    def __init__(self, args: Dict):
-        super().__init__(args)
-
-    def score_hypothesis(self, hypothesis: str, dataset: List[dict]) -> List[float]:
-        return [0.0] * len(dataset)
-
 
 def test_rankers():
     args = {
@@ -443,18 +325,6 @@ def test_rankers():
         item["caption"] = get_vlm_output(item["path"], "Describe this image", "llava")
 
     hypotheses = ["A cat", "Food"]
-
-    ranker_clip = CLIPRanker(args)
-    scores = ranker_clip.rerank_hypotheses(hypotheses, dataset1, dataset2)
-    print(scores)
-
-    ranker_vlm = VLMRanker(args)
-    scores = ranker_vlm.rerank_hypotheses(hypotheses, dataset1, dataset2)
-    print(scores)
-
-    ranker_llm = LLMRanker(args)
-    scores = ranker_llm.rerank_hypotheses(hypotheses, dataset1, dataset2)
-    print(scores)
 
 
 if __name__ == "__main__":

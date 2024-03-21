@@ -31,6 +31,7 @@ proposer:  # LLM Proposer
   sampling_method: random  # how to sample
   num_hypotheses: 10  # number of hypotheses to generate per round
   prompt: CLIP_FRIENDLY  # prompt to use
+  oz_axes: ["Tone", "Format", "Level of Detail", "Ability to answer", "Approach", "Creativity", "Fluency and crammatical correctness", "Specificity and detail", "Adherence to prompt"]
 
 # proposer:  # VLM Feature Proposer
 #   method: VLMFeatureProposer  # how to propose hypotheses

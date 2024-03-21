@@ -4,9 +4,9 @@ seed: 1  # random seed
 
 data:
   root: ./data
-  name: claude_gpt  # name of dataset
-  group1: "claude-2_1"  # name of group 1
-  group2: "gpt-4"  # name of group 2
+  name: human_gpt_wiki_csail  # name of dataset
+  group1: human_answers  # name of group 1
+  group2: chatgpt_answers  # name of group 2
   purity: 1.0  # how much of each concept is in each group (1.0 means perfect seperation, 0.5 means perfect mix)
   # subset: palm-2 # if you want to use a subset of the dataset, set this to name of the desired subset value
 
@@ -17,7 +17,8 @@ proposer:  # LLM Proposer
   num_samples: 1  # number of samples per group to use
   sampling_method: random  # how to sample
   num_hypotheses: 3  # number of hypotheses to generate per round
-  prompt: LLM_ONLY_PROMPT_DUAL
+  prompt: LLM_ONLY_PROMPT_OZ
+  oz_axes: ["Tone", "Format", "Level of Detail", "Ability to answer", "Approach", "Creativity", "Fluency and crammatical correctness", "Specificity and detail", "Adherence to prompt"]
 
 ranker:  # LLM Ranker 
   method: DualClusterRanker

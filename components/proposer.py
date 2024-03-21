@@ -89,6 +89,7 @@ class LLMProposer(Proposer):
     def __init__(self, args: Dict):
         super().__init__(args)
         self.prompt = getattr(prompts, args["prompt"])
+        self.prompt_name = args["prompt"]
 
     def get_hypotheses(
         self, sampled_dataset1: List[Dict], sampled_dataset2: List[Dict]
@@ -114,6 +115,7 @@ class LLMPairwiseProposerWithQuestion(Proposer):
     def __init__(self, args: Dict):
         super().__init__(args)
         self.prompt = getattr(prompts, args["prompt"])
+        self.prompt_name = args["prompt"]
 
     def sample(self, dataset: List[Dict], dataset2: List[Dict],  n: int) -> List[Dict]:
         # randomly sample n questions from dataset1 and resample if item['answer'] is the same in dataset2 for the same question
@@ -207,7 +209,10 @@ class DualSidedLLMProposer(LLMPairwiseProposerWithQuestion):
             for item in sampled_dataset2
         ]
         caption_concat = "\n".join(question + captions1 + captions2)
-        prompt = self.prompt.format(text=caption_concat)
+        if "OZ" in self.prompt_name:
+            prompt = self.prompt.format(text=caption_concat, axes=self.args["oz_axes"])
+        else:
+            prompt = self.prompt.format(text=caption_concat)
         output = get_llm_output(prompt, self.args["model"])
         print(output)
         print("-----------------------")

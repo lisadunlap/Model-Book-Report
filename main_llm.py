@@ -15,7 +15,7 @@ from components.proposer import (
     DualSidedLLMProposer,
     DualSidedLLMProposerNoQuestion
 )
-from components.ranker import CLIPRanker, LLMRanker, NullRanker, VLMRanker, LLMOnlyRanker, ClusterRanker, DualClusterRanker, DualClusterRanker2
+from components.ranker import NullRanker, LLMOnlyRanker, DualClusterRanker, DualClusterRanker2
 
 
 def load_config(config: str) -> Dict:
@@ -71,6 +71,11 @@ def propose(args: Dict, dataset1: List[Dict], dataset2: List[Dict]) -> List[str]
         wandb.log({"logs": wandb.Table(dataframe=pd.DataFrame(logs))})
         wandb.log({"llm_outputs": wandb.Table(dataframe=pd.DataFrame(images))})
     all_outputs = pd.DataFrame(images)
+    all_outputs['question'] = all_outputs['question'].apply(lambda x: x[0])
+    all_outputs['group_1_hypotheses'] = all_outputs['group_1_hypotheses'].apply(lambda x: x[0])
+    all_outputs['group_2_hypotheses'] = all_outputs['group_2_hypotheses'].apply(lambda x: x[0])
+    all_outputs['group_1_answers'] = all_outputs['group_1_answers'].apply(lambda x: x[0])
+    all_outputs['group_2_answers'] = all_outputs['group_2_answers'].apply(lambda x: x[0])
     all_outputs.to_csv('all_outputs.csv', index=False)
     wandb.log({'all_outputs': wandb.Table(dataframe=all_outputs)})
     # all_outputs['group_1_hypotheses'] = all_outputs['group_1_hypotheses'].apply(lambda x: ast.literal_eval(x[0]))
@@ -99,7 +104,7 @@ def rank(
             wandb.log({f"scored {key}": table_hypotheses})
         # make the keys of the dictionary the columns of the dataframe
         dfs = []
-        for key in score_hypotheses.keys():
+        for key in scored_hypotheses.keys():
             df = pd.DataFrame(scored_hypotheses[key])
             df['supercluster'] = key
             dfs.append(df)
