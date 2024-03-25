@@ -1,71 +1,81 @@
-from transformers import BertTokenizer, BertModel
-import torch
-from sklearn.linear_model import LogisticRegression
-import numpy as np
 import pandas as pd
+from datasets import Dataset, DatasetDict
+from sklearn.model_selection import train_test_split
 
-# Function to get embeddings from a list of text
-def get_embeddings(text_list):
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    model = BertModel.from_pretrained('bert-base-uncased')
+# Load the dataset
+df = pd.read_csv("./data/all_train.csv")
+df['label'] = df['label'].astype('category').cat.codes
+# shuffle dataframe rows
+df = df.sample(frac=1).reset_index(drop=True)
+print(df.head())
 
-    embeddings = []
-    for text in text_list:
-        inputs = tokenizer(text, return_tensors='pt', padding=True, truncation=True, max_length=512)
-        outputs = model(**inputs)
-        embeddings.append(outputs.last_hidden_state.mean(dim=1).detach().numpy())
+# Split the dataset
+train_df, test_df = train_test_split(df, test_size=0.2)
 
-    return np.vstack(embeddings)
+# Convert DataFrames to Hugging Face Dataset
+train_dataset = Dataset.from_pandas(train_df)
+test_dataset = Dataset.from_pandas(test_df)
 
-# Function to train classifier
-def train_classifier(text_list, labels):
-    embeddings = get_embeddings(text_list)
-    classifier = LogisticRegression(class_weight='balanced')
-    classifier.fit(embeddings, labels)
-    return classifier
+# Combine into a DatasetDict
+datasets = DatasetDict({
+    'train': train_dataset,
+    'test': test_dataset
+})
 
-import ast
-import pandas as pd
-df = pd.read_csv('data/chatbot_arena_conversations_1_turn.csv')
-df['conversation_a'] = df['conversation_a'].apply(ast.literal_eval)
-df['conversation_b'] = df['conversation_b'].apply(ast.literal_eval)
-df['answer_a'] = df['conversation_a'].apply(lambda x: x[1]['content'])
-df['answer_b'] = df['conversation_b'].apply(lambda x: x[1]['content'])
-model1 = "vicuna-13b"
-model2 = "koala-13b"
-two_model_df = df[((df['model_a'] == model1) & (df['model_b'] == model2)) | 
-                ((df['model_a'] == model2) & (df['model_b'] == model1))]
+from transformers import AutoTokenizer
 
+model_checkpoint = "bert-base-uncased"
+tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
 
-# Create two separate dataframes, one for each model and its corresponding conversation
-df_model_a = two_model_df[['question_id', 'question', 'model_a', 'winner', 'answer_a']].copy()
-df_model_b = two_model_df[['question_id', 'question', 'model_b', 'winner', 'answer_b']].copy()
+def tokenize_function(examples):
+    return tokenizer(examples["text"], padding="max_length", truncation=True)
 
-# Rename the columns to have consistent names
-df_model_a.rename(columns={'model_a': 'model', 'answer_a': 'answer'}, inplace=True)
-df_model_b.rename(columns={'model_b': 'model', 'answer_b': 'answer'}, inplace=True)
+tokenized_datasets = datasets.map(tokenize_function, batched=True)
 
-# Concatenate the two dataframes
-df_final = pd.concat([df_model_a, df_model_b], ignore_index=True)
-df = df_final[df_final['winner'] != 'tie (bothbad)']
-train_df = df[:1000]
-test_df = df[1000:]
-# shuffle the data
-train_df = train_df.sample(frac=1).reset_index(drop=True)
-train_df['label'] = train_df['model'].apply(lambda x: 1 if x == 'vicuna-13b' else 0)
-# Example usage
-text_list = train_df['answer'].tolist() # Replace with your list of strings
-labels = train_df['label'].tolist()  # Replace with your labels
+from transformers import AutoModelForSequenceClassification
 
-# Train the classifier
-classifier = train_classifier(text_list, labels)
+num_labels = df['label'].nunique()
+model = AutoModelForSequenceClassification.from_pretrained(model_checkpoint, num_labels=num_labels)
 
-# To predict labels for new texts
-new_texts = test_df['answer'].tolist() # Replace with new texts
-new_embeddings = get_embeddings(new_texts)
-predictions = classifier.predict(new_embeddings)
-print(predictions)
+import wandb
 
-test_labels = test_df['model'].apply(lambda x: 1 if x == 'vicuna-13b' else 0).tolist()
-print(predictions == test_labels)
-print(sum(predictions == test_labels) / len(predictions))
+wandb.init(project="llm_eval_text_classification", entity="lisadunlap")
+
+from transformers import Trainer, TrainingArguments
+from sklearn.metrics import accuracy_score
+from transformers import EvalPrediction
+
+def compute_metrics(p: EvalPrediction):
+    preds = p.predictions.argmax(-1)  # Get the index of the max logit as the prediction
+    return {"accuracy": accuracy_score(p.label_ids, preds)}
+
+training_args = TrainingArguments(
+    output_dir="./results",
+    evaluation_strategy="epoch",  # Evaluate at the end of each epoch
+    per_device_train_batch_size=16,
+    per_device_eval_batch_size=16,
+    num_train_epochs=4,
+    logging_dir='./logs',
+    load_best_model_at_end=True,
+    metric_for_best_model="accuracy",
+    report_to="wandb",
+    save_strategy="epoch",
+)
+
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    compute_metrics=compute_metrics,
+    train_dataset=tokenized_datasets["train"],
+    eval_dataset=tokenized_datasets["test"],
+    tokenizer=tokenizer,
+)
+
+trainer.train()
+
+# Now, you can safely call evaluate on these tokenized datasets
+train_results = trainer.evaluate(tokenized_datasets["train"])
+print(f"Training Accuracy: {train_results['eval_accuracy']}")
+
+test_results = trainer.evaluate(tokenized_datasets["test"])
+print(f"Testing Accuracy: {test_results['eval_accuracy']}")

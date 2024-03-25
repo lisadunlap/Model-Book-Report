@@ -7,8 +7,9 @@ import ast
 # Load your dataframe
 # questions = pd.read_csv("./all_claude_gpt_math_outputs.csv")  # Ensure you have the correct path to your CSV
 # clusters = pd.read_csv("./all_claude_gpt_math_cluster_descriptions.csv")  # Ensure you have the correct path to your CSV
-questions = pd.read_csv("./all_outputs_wiki.csv")  # Ensure you have the correct path to your CSV
-clusters = pd.read_csv("./cluster_descriptions_wiki.csv")  # Ensure you have the correct path to your CSV
+questions = pd.read_csv("./all_outputs.csv")  # Ensure you have the correct path to your CSV
+clusters = pd.read_csv("./cluster_descriptions.csv")  # Ensure you have the correct path to your CSV
+logs = pd.read_csv("./llm_cluster_logs.csv")  # Ensure you have the correct path to your CSV
 clusters["group_1_scores"] = clusters["group_1_scores"].apply(lambda x: ast.literal_eval(x))
 clusters["group_2_scores"] = clusters["group_2_scores"].apply(lambda x: ast.literal_eval(x))
 clusters["group_1_score_diffs"] = clusters["group_1_score_diffs"].apply(lambda x: ast.literal_eval(x))
@@ -16,10 +17,10 @@ clusters["group_2_score_diffs"] = clusters["group_2_score_diffs"].apply(lambda x
 
 # sort df by diff_score
 clusters = clusters.sort_values(by='difference_score', ascending=False)
-# model_a, model_b = "Claude 2.1", "GPT-4"
-# model_a_name, model_b_name = "claude-2_1", "gpt-4"
-model_a, model_b = "Human Answers", "ChatGPT Answers"
-model_a_name, model_b_name = "Human Answers", "ChatGPT Answers"
+model_a, model_b = "Claude 2.1", "GPT-4"
+model_a_name, model_b_name = "claude-2_1", "gpt-4"
+# model_a, model_b = "Human Answers", "ChatGPT Answers"
+# model_a_name, model_b_name = "Human Answers", "ChatGPT Answers"
     
 def update_ui(cluster):
     # Filter dataframe based on selected cluster
@@ -140,17 +141,11 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
     gr.Markdown("Given the differenes generated for each (question, answer_A, answer_B tuple), axes are generated which represent the Axes of variation. These represent any general patterns, clusters, or variations in model outputs, with each axis having a notion of low and high.")
     gr.Markdown("The 'score' of each model represents where it falls on a given axis. Start by selecting an Axis to view the scores, descriptions of the axis, and examples of questions that fall on the axis.")
     summary_clusters = clusters[["axis", "axes_description_low", "axes_description_high", "count", "group_1_avg", "group_2_avg", "difference_score"]]
-    # gr.Examples(
-    #     summary_clusters.tolist(),
-    #     ["axis", "axes_description_low", "axes_description_high", "count", "group_1_avg", "group_2_avg", "difference_score"],
-    #     txt_3,
-    #     combine,
-    #     cache_examples=True,
-    # )
     with gr.Row():
         model_a_box = gr.Textbox(label="Model A", value=model_a, interactive=False)
         model_b_box = gr.Textbox(label="Model B", value=model_b, interactive=False)
     gr.DataFrame(summary_clusters, label="Summary of Axes")
+    # dis_descriptions = f"### Axis Descriptions\n---\n{logs[logs['input'] == 'Axes description'].iloc[0]['output']}"
     with gr.Row():
         cluster_dropdown = gr.Dropdown(choices=clusters['axis'].unique().tolist(), label="Select Axis")
         regenerate_button = gr.Button("Explore Axis")
