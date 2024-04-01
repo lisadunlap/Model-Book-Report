@@ -1,0 +1,2758 @@
+input,prompt,output
+Axes description,"I will provide a series of data for you to remember. Subsequently, I will ask you some
+questions to test your performance! Here are some descriptions for you to memorize.
+[
+psychological context
+detailed historical elements
+mention of specific techniques
+direct application scenarios
+detailed descriptions
+lack of response
+balance of public and creator interests
+philosophical reasoning
+more examples of processes
+straightforward and didactic
+disease and information spread mention
+emphasis on academic credentials
+application usage
+ethical considerations
+use of examples
+mention of obsolescence
+application-oriented details
+explanation of material type
+variety of ai forms
+more concise
+adherence to prompt
+academic tone
+large-scale statistics
+more steps in process explained
+usage of metaphor (images)
+explanation of modularity concept
+highlight on the role of questioning
+more detailed interactions
+explanatory format
+usage examples
+simplified expressions
+generic terms
+complexity in explanation
+ability to answer
+brevity in response
+focus on project's theoretical goals
+explicit timeframe
+mention of ai techniques
+simple language
+cross-disciplinary coverage
+human learning analogy
+specificity and detail
+explanation of peptide roles
+focus on agi
+explanation of training process
+explicit mention of important concepts
+detailed process of testing
+referencing academic fields
+contextual information
+quotes from harari's works
+proactive instruction
+greater specificity in examples
+explanation of work's importance
+plain language explanations
+cryptanalysis contribution mention
+data sets division strategies
+extended backstory
+compressed explanation
+detail on research activities
+association with key-value pairs
+contextual applications
+practical application mention
+business and practical applications
+performance evaluation
+issues on consciousness
+potential tool references
+detailed tactics
+potential impact explication
+mention of reductionism
+brief definitions
+scientific context
+evolutionary process explanation
+distinct categorization of ai
+scientific terminology
+direct narrative
+detail about employment history
+detail on classification types
+discussion on the benefits of discovery
+loose use of 'database' term
+definition elaboration
+link to cognitive science
+detail and elaboration
+more theoretical overview
+description of win conditions
+historical context
+concise explanation
+specific details
+more maintenance & operation insights
+detailed explanations
+research references
+technical jargon
+direct definition
+task execution focus
+simplicity and clarity
+association with established entities
+mention of work settings
+academic honors and affiliations
+specific terminology use
+collaborative efforts
+step-by-step explanation
+real world examples
+proactive strategies
+reference to related technologies
+focus on personal life
+specific hardware components
+technical language/terms
+hugo award details
+explanatory continuity
+fixed set of possible actions concept
+specific methodologies
+terminology use
+focus on function and steps
+applicable fields mention
+discussion of visual perception
+less detailed about specific works/contributions
+details on product offerings
+employer-worker dynamics
+direct response
+quoted experts
+example tasks
+specific use-cases of concept
+discussion about combination with black-box testing
+less detail
+explicit mention of security
+specific axiom explanation
+simple examples
+discussion of software
+precise scientific terms
+conciseness
+more examples
+mention of radical breakthroughs
+practical applications
+general information
+detail on truth function types
+usage of specific examples
+individual sensory modalities mention
+direct quoting of sources
+statistical data
+function and methods description
+broader conceptual focus
+discussion on limitations
+concise and to-the-point information
+historical specificities
+legislative focus
+brief overview
+specification-oriented approach
+gold of machine perception
+applications of machine perception
+physical examples
+clear definitions
+]
+I’m trying to understand the behavior of different language models. The above are some descriptions of model outputs, and I'd like to cluster them into different axes of variation. Using these specific examples, are there any general patterns, clusters, or variations you notice in the descriptions? Try to give patterns that are specific enough that someone could reliably produce new examples that fit the rule, and that they could understand what it means to be higher or lower on that specific axis. Please make the axes such that no two axes will provide roughly the same takeaways about the data. Please try to give as
+many general patterns as possible. Please focus on patterns that are important for understanding the behavior of a language model, as these will later be used to help debug an important system. Please explain clearly why the pattern would be important for understanding the behavior of such a system. Please summarize as many as you can and stick to the examples. Please output your response as a numbered list.","1. **Level of Detail**: This axis ranges from detailed descriptions such as 'detailed historical elements', 'mention of specific techniques', and 'variety of AI forms', to concise outputs such as 'brevity in response', 'less detail', and 'concise explanation'. Understanding this pattern is crucial to grasp how the language model processes and represents information. A system that provides overly detailed answers might overwhelm or confuse a user, while a system that heavily simplifies information risks omitting important details. 
+
+2. **Contextual Nature**: The axis includes references to the context such as 'psychological context', 'business and practical applications', 'historical context', 'scientific context', and 'academic tone'. Insights gained from this axis help guide the model's understanding and usage of real-world context in its outputs, which is essential for providing accurate and resonating responses.
+
+3. **Technicality of Language**: This axis ranges from simple language wording like 'plain language explanations', 'simple language', and 'simple examples', to complex or specialized language such as 'scientific terminology', 'technical jargon', and 'technical language/terms'. This will be key for understanding a system's behavior in order to adapt it to different user groups and their preferences or needs.
+
+4. **Functional Explanation**: This includes 'direct application scenario', 'explanatory format', 'function and methods description', etc. This pattern explains how diligently the model describes the functionalities, process, or application scenarios, helping us determine how well the model can clarify or elaborate complex processes and ideas.
+
+5. **Academic Affiliation and References**: This involves 'emphasis on academic credentials', 'academic tone', 'research references', 'academic honors and affiliations'. This pattern underscores the capacity of the model to incorporate authoritative and validated sources. Understanding this behavior would be pivotal in assessing the credibility and reliability of the model's outputs.
+
+6. **Practical Application and Scenario**: Certain descriptions suggest actual use cases or scenarios like 'practical application mention', 'real-world examples', 'specific use-cases of concept'. Thorough understanding of this pattern can give insight into how widely and accurately the language model can apply learned information, contributing to system debugging and usability improvement.
+
+7. **Explanation and Elaboration**: This is found in descriptions like 'step-by-step explanation', 'definition elaboration', 'detailed explanations'. This axis can help assess the model's capability for didactic and explanatory content.
+
+8. **Mention of Specific Techniques and Concepts**: This axis includes 'mention of ai techniques', 'mention of obsolescence', 'mention of radical breakthroughs'. The pattern helps determine how adept the model is at addressing and elaborating on varied techniques and concepts.
+
+9. **Use of Metaphors and Analogies**: 'human learning analogy', 'usage of metaphor (images)'. This aspect is key in understanding the language model's ability to simplify complex ideas through metaphors, an important factor for comprehensibility and user-friendliness. 
+
+10. **Directness of Response**: This involves 'direct response', 'direct application scenario', 'direct definition'. This pattern clarifies how the model responds to a prompt; it can be crucial for ensuring the productivity and relevancy of model’s response.
+
+Each of these patterns/axes is significant for understanding the language model's behavior, and by extension, its strengths and limitations. Gaining insight into these behaviors is critical to effectively debug the system and refine its performance."
+Level of Detail,"Thank you. Now I would like you to use these axes to categorize the specific examples I gave you. To start with, let's consider this axis you chose:
+1. **Level of Detail**: This axis ranges from detailed descriptions such as 'detailed historical elements', 'mention of specific techniques', and 'variety of AI forms', to concise outputs such as 'brevity in response', 'less detail', and 'concise explanation'. Understanding this pattern is crucial to grasp how the language model processes and represents information. A system that provides overly detailed answers might overwhelm or confuse a user, while a system that heavily simplifies information risks omitting important details. 
+
+I want you to provide a description of each end of this axis then I want you to consider each of the specific descriptions from before, and determine whether they are relevant to this axis. If they are, say how they score along this axis on a scale of -5 to 5, where -5 means they are strongly towards the low end of the axis, and 5 means they are strongly towards the high end. Provide your output as a tuple of each end of the axis and then list of descriptions followed by the score, each on one line, such as
+Axis descriptions: (""{description of low end}"", ""{description of high end}"")
+1. ""{first description}"": {score from -5 to 5}
+2. ""{second description}"": {score from -5 to 5}
+Include only the descriptions that are relevant to the axis. As a reminder, here are the descriptions from before:
+[
+psychological context
+detailed historical elements
+mention of specific techniques
+direct application scenarios
+detailed descriptions
+lack of response
+balance of public and creator interests
+philosophical reasoning
+more examples of processes
+straightforward and didactic
+disease and information spread mention
+emphasis on academic credentials
+application usage
+ethical considerations
+use of examples
+mention of obsolescence
+application-oriented details
+explanation of material type
+variety of ai forms
+more concise
+adherence to prompt
+academic tone
+large-scale statistics
+more steps in process explained
+usage of metaphor (images)
+explanation of modularity concept
+highlight on the role of questioning
+more detailed interactions
+explanatory format
+usage examples
+simplified expressions
+generic terms
+complexity in explanation
+ability to answer
+brevity in response
+focus on project's theoretical goals
+explicit timeframe
+mention of ai techniques
+simple language
+cross-disciplinary coverage
+human learning analogy
+specificity and detail
+explanation of peptide roles
+focus on agi
+explanation of training process
+explicit mention of important concepts
+detailed process of testing
+referencing academic fields
+contextual information
+quotes from harari's works
+proactive instruction
+greater specificity in examples
+explanation of work's importance
+plain language explanations
+cryptanalysis contribution mention
+data sets division strategies
+extended backstory
+compressed explanation
+detail on research activities
+association with key-value pairs
+contextual applications
+practical application mention
+business and practical applications
+performance evaluation
+issues on consciousness
+potential tool references
+detailed tactics
+potential impact explication
+mention of reductionism
+brief definitions
+scientific context
+evolutionary process explanation
+distinct categorization of ai
+scientific terminology
+direct narrative
+detail about employment history
+detail on classification types
+discussion on the benefits of discovery
+loose use of 'database' term
+definition elaboration
+link to cognitive science
+detail and elaboration
+more theoretical overview
+description of win conditions
+historical context
+concise explanation
+specific details
+more maintenance & operation insights
+detailed explanations
+research references
+technical jargon
+direct definition
+task execution focus
+simplicity and clarity
+association with established entities
+mention of work settings
+academic honors and affiliations
+specific terminology use
+collaborative efforts
+step-by-step explanation
+real world examples
+proactive strategies
+reference to related technologies
+focus on personal life
+specific hardware components
+technical language/terms
+hugo award details
+explanatory continuity
+fixed set of possible actions concept
+specific methodologies
+terminology use
+focus on function and steps
+applicable fields mention
+discussion of visual perception
+less detailed about specific works/contributions
+details on product offerings
+employer-worker dynamics
+direct response
+quoted experts
+example tasks
+specific use-cases of concept
+discussion about combination with black-box testing
+less detail
+explicit mention of security
+specific axiom explanation
+simple examples
+discussion of software
+precise scientific terms
+conciseness
+more examples
+mention of radical breakthroughs
+practical applications
+general information
+detail on truth function types
+usage of specific examples
+individual sensory modalities mention
+direct quoting of sources
+statistical data
+function and methods description
+broader conceptual focus
+discussion on limitations
+concise and to-the-point information
+historical specificities
+legislative focus
+brief overview
+specification-oriented approach
+gold of machine perception
+applications of machine perception
+physical examples
+clear definitions
+]
+Please output your response as a tuple of axis descriptions on the first lines, and the following lines as a numbered list of the decriptions and their score. Please ensure the descriptions of each end of the axis are clear, distinct from each other, and under 5 words.
+","Axis descriptions: (""Concise Outputs"", ""Detailed Descriptions"")
+
+1. ""psychological context"": 0
+2. ""detailed historical elements"": 5
+3. ""mention of specific techniques"": 3
+4. ""direct application scenarios"": 2
+5. ""detailed descriptions"": 5
+6. ""balance of public and creator interests"": 0
+7. ""philosophical reasoning"": 0
+8. ""more examples of processes"": 2
+9. ""disease and information spread mention"": 0
+10. ""emphasis on academic credentials"": 0
+11. ""application usage"": 1
+12. ""ethical considerations"": 0
+13. ""use of examples"": 1
+14. ""mention of obsolescence"" : 1
+15. ""explanation of material type"": 2
+16. ""variety of AI forms"": 4
+17. ""more concise"": -5
+18. ""large-scale statistics"": 2
+19. ""usage of metaphor (images)"": 2
+20. ""explanation of modularity concept"": 3
+21. ""more detailed interactions"": 4
+22. ""explanatory format"": 3
+23. ""simplified expressions"": -3
+24. ""generic terms"": -2
+25. ""complexity in explanation"": 5
+26. ""brevity in response"": -5
+27. ""specificity and detail"": 5
+28. ""explanation of peptide roles"": 3
+29. ""explanation of training process"": 4
+30. ""detailed process of testing"": 5
+31. ""contextual information"": 2
+32. ""greater specificity in examples"": 4
+33. ""detail on research activities"": 4
+34. ""detail about employment history"": 3
+35. ""detail on classification types"": 4
+36. ""definition elaboration"": 3
+37. ""link to cognitive science"": 2
+38. ""detail and elaboration"": 5
+39. ""description of win conditions"": 2
+40. ""historical context"": 3
+41. ""concise explanation"": -5
+42. ""specific details"": 4
+43. ""detailed explanations"": 5
+44. ""technical jargon"": 3
+45. ""simplicity and clarity"": -3
+46. ""specific terminology use"": 3
+47. ""step-by-step explanation"": 4
+48. ""real world examples"": 2
+49. ""specific hardware components"": 4
+50. ""explanatory continuity"": 3
+51. ""specific methodologies"": 5
+52. ""terminology use"": 3
+53. ""focus on function and steps"": 3
+54. ""less detailed about specific works/contributions"": -3
+55. ""details on product offerings"": 3
+56. ""direct response"": -2
+57. ""specific use-cases of concept"": 4
+58. ""less detail"": -5
+59. ""simple examples"": -3
+60. ""precise scientific terms"": 2
+61. ""conciseness"": -5
+62. ""general information"": -2
+63. ""detail on truth function types"": 4
+64. ""usage of specific examples"": 3
+65. ""direct quoting of sources"": 2
+66. ""function and methods description"": 4
+67. ""broader conceptual focus"": 0
+68. ""concise and to-the-point information"": -5
+69. ""historical specificities"": 4
+70. ""brief overview"": -3
+71. ""specification-oriented approach"": 3
+72. ""clear definitions"": -2"
+Contextual Nature,"Thank you. Now I would like you to use these axes to categorize the specific examples I gave you. To start with, let's consider this axis you chose:
+2. **Contextual Nature**: The axis includes references to the context such as 'psychological context', 'business and practical applications', 'historical context', 'scientific context', and 'academic tone'. Insights gained from this axis help guide the model's understanding and usage of real-world context in its outputs, which is essential for providing accurate and resonating responses.
+
+I want you to provide a description of each end of this axis then I want you to consider each of the specific descriptions from before, and determine whether they are relevant to this axis. If they are, say how they score along this axis on a scale of -5 to 5, where -5 means they are strongly towards the low end of the axis, and 5 means they are strongly towards the high end. Provide your output as a tuple of each end of the axis and then list of descriptions followed by the score, each on one line, such as
+Axis descriptions: (""{description of low end}"", ""{description of high end}"")
+1. ""{first description}"": {score from -5 to 5}
+2. ""{second description}"": {score from -5 to 5}
+Include only the descriptions that are relevant to the axis. As a reminder, here are the descriptions from before:
+[
+psychological context
+detailed historical elements
+mention of specific techniques
+direct application scenarios
+detailed descriptions
+lack of response
+balance of public and creator interests
+philosophical reasoning
+more examples of processes
+straightforward and didactic
+disease and information spread mention
+emphasis on academic credentials
+application usage
+ethical considerations
+use of examples
+mention of obsolescence
+application-oriented details
+explanation of material type
+variety of ai forms
+more concise
+adherence to prompt
+academic tone
+large-scale statistics
+more steps in process explained
+usage of metaphor (images)
+explanation of modularity concept
+highlight on the role of questioning
+more detailed interactions
+explanatory format
+usage examples
+simplified expressions
+generic terms
+complexity in explanation
+ability to answer
+brevity in response
+focus on project's theoretical goals
+explicit timeframe
+mention of ai techniques
+simple language
+cross-disciplinary coverage
+human learning analogy
+specificity and detail
+explanation of peptide roles
+focus on agi
+explanation of training process
+explicit mention of important concepts
+detailed process of testing
+referencing academic fields
+contextual information
+quotes from harari's works
+proactive instruction
+greater specificity in examples
+explanation of work's importance
+plain language explanations
+cryptanalysis contribution mention
+data sets division strategies
+extended backstory
+compressed explanation
+detail on research activities
+association with key-value pairs
+contextual applications
+practical application mention
+business and practical applications
+performance evaluation
+issues on consciousness
+potential tool references
+detailed tactics
+potential impact explication
+mention of reductionism
+brief definitions
+scientific context
+evolutionary process explanation
+distinct categorization of ai
+scientific terminology
+direct narrative
+detail about employment history
+detail on classification types
+discussion on the benefits of discovery
+loose use of 'database' term
+definition elaboration
+link to cognitive science
+detail and elaboration
+more theoretical overview
+description of win conditions
+historical context
+concise explanation
+specific details
+more maintenance & operation insights
+detailed explanations
+research references
+technical jargon
+direct definition
+task execution focus
+simplicity and clarity
+association with established entities
+mention of work settings
+academic honors and affiliations
+specific terminology use
+collaborative efforts
+step-by-step explanation
+real world examples
+proactive strategies
+reference to related technologies
+focus on personal life
+specific hardware components
+technical language/terms
+hugo award details
+explanatory continuity
+fixed set of possible actions concept
+specific methodologies
+terminology use
+focus on function and steps
+applicable fields mention
+discussion of visual perception
+less detailed about specific works/contributions
+details on product offerings
+employer-worker dynamics
+direct response
+quoted experts
+example tasks
+specific use-cases of concept
+discussion about combination with black-box testing
+less detail
+explicit mention of security
+specific axiom explanation
+simple examples
+discussion of software
+precise scientific terms
+conciseness
+more examples
+mention of radical breakthroughs
+practical applications
+general information
+detail on truth function types
+usage of specific examples
+individual sensory modalities mention
+direct quoting of sources
+statistical data
+function and methods description
+broader conceptual focus
+discussion on limitations
+concise and to-the-point information
+historical specificities
+legislative focus
+brief overview
+specification-oriented approach
+gold of machine perception
+applications of machine perception
+physical examples
+clear definitions
+]
+Please output your response as a tuple of axis descriptions on the first lines, and the following lines as a numbered list of the decriptions and their score. Please ensure the descriptions of each end of the axis are clear, distinct from each other, and under 5 words.
+","Axis descriptions: (""Low Contextual Information"", ""High Contextual Information"")
+
+1. ""psychological context"": 4
+2. ""detailed historical elements"": 3
+3. ""mention of specific techniques"": -1
+4. ""direct application scenarios"": -1
+5. ""detailed descriptions"": 1
+6. ""balance of public and creator interests"": 0
+7. ""philosophical reasoning"": 0
+8. ""more examples of processes"": -2
+9. ""straightforward and didactic"": -4
+10. ""disease and information spread mention"": -1
+11. ""emphasis on academic credentials"": -1
+12. ""application usage"": -2
+13. ""ethical considerations"": 2
+14. ""use of examples"": -2
+15. ""mention of obsolescence"": 1
+16. ""application-oriented details"": -3
+17. ""explanation of material type"": -1
+18. ""variety of ai forms"": -1
+19. ""more concise"": -5
+20. ""academic tone"": 5
+21. ""large-scale statistics"": 0
+22. ""more steps in process explained"": -3
+23. ""usage of metaphor (images)"": -3
+24. ""explanation of modularity concept"": -4
+25. ""highlight on the role of questioning"": 0
+26. ""more detailed interactions"": -2
+27. ""explanatory format"": -2
+28. ""usage examples"": -4
+29. ""simplified expressions"": -5
+30. ""generic terms"": -4
+31. ""complexity in explanation"": -2
+32. ""ability to answer"": -5
+33. ""brevity in response"": -5
+34. ""focus on project's theoretical goals"": 0
+35. ""explicit timeframe"": -2
+36. ""mention of ai techniques"": -2
+37. ""simple language"": -5
+38. ""cross-disciplinary coverage"": 3
+39. ""human learning analogy"": -1
+40. ""specificity and detail"": 2
+41. ""explanation of peptide roles"": -1
+42. ""focus on agi"": -1
+43. ""explanation of training process"": -3
+44. ""explicit mention of important concepts"": -1
+45. ""detailed process of testing"": -2
+46. ""referencing academic fields"": 4
+47. ""contextual information"": 5
+48. ""quotes from harari's works"": 2
+49. ""proactive instruction"": -4
+50. ""greater specificity in examples"": -1
+51. ""explanation of work's importance"": 0
+52. ""plain language explanations"": -5
+53. ""cryptanalysis contribution mention"": -1
+54. ""data sets division strategies"": -3
+55. ""extended backstory"": 1
+56. ""compressed explanation"": -5
+57. ""detail on research activities"": 0
+58. ""association with key-value pairs"": -2
+59. ""contextual applications"": 5
+60. ""practical application mention"": -1
+61. ""business and practical applications"": 0
+62. ""performance evaluation"": -3
+63. ""issues on consciousness"": 1
+64. ""potential tool references"": -2
+65. ""detailed tactics"": -1
+66. ""potential impact explication"": 1
+67. ""mention of reductionism"": 1
+68. ""brief definitions"": -4
+69. ""scientific context"": 4
+70. ""evolutionary process explanation"": -1
+71. ""distinct categorization of ai"": -3
+72. ""scientific terminology"": -1
+73. ""direct narrative"": -4
+74. ""detail about employment history"": 2
+75. ""detail on classification types"": -3
+76. ""discussion on the benefits of discovery"": 0
+77. ""loose use of 'database' term"": -4
+78. ""definition elaboration"": -3
+79. ""link to cognitive science"": 4
+80. ""detail and elaboration"": 0
+81. ""more theoretical overview"": -1
+82. ""description of win conditions"": -3
+83. ""historical context"": 4
+84. ""concise explanation"": -5
+85. ""specific details"": 2
+86. ""more maintenance & operation insights"": -2
+87. ""research references"": 3
+88. ""technical jargon"": -3
+89. ""direct definition"": -4
+90. ""task execution focus"": -3
+91. ""simplicity and clarity"": -5
+92. ""association with established entities"": 1
+93. ""mention of work settings"": 1
+94. ""academic honors and affiliations"": 4
+95. ""specific terminology use"": -1
+96. ""collaborative efforts"": 0
+97. ""step-by-step explanation"": -4
+98. ""real world examples"": 3
+99. ""proactive strategies"": -2
+100. ""reference to related technologies"": 1
+101. ""focus on personal life"": 1
+102. ""specific hardware components"": -3
+103. ""technical language/terms"": -3
+104. ""hugo award details"": 2
+105. ""explanatory continuity"": -2
+106. ""fixed set of possible actions concept"": -3
+107. ""specific methodologies"": -2
+108. ""terminology use"": -2
+109. ""focus on function and steps"": -3
+110. ""applicable fields mention"": 1
+111. ""discussion of visual perception"": 1
+112. ""less detailed about specific works/contributions"": -5
+113. ""details on product offerings"": 1
+114. ""employer-worker dynamics"": 1
+115. ""direct response"": -5
+116. ""quoted experts"": 3
+117. ""example tasks"": -4
+118. ""specific use-cases of concept"": -2
+119. ""discussion about combination with black-box testing"": 0
+120. ""less detail"": -5
+121. ""explicit mention of security"": -2
+122. ""specific axiom explanation"": -3
+123. ""simple examples"": -5
+124. ""discussion of software"": 0
+125. ""precise scientific terms"": -1
+126. ""conciseness"": -5
+127. ""more examples"": -3
+128. ""mention of radical breakthroughs"": 2
+129. ""practical applications"": -2
+130. ""general information"": -4
+131. ""detail on truth function types"": -3
+132. ""usage of specific examples"": -3
+133. ""individual sensory modalities mention"": 1
+134. ""direct quoting of sources"": 3
+135. ""statistical data"": -1
+136. ""function and methods description"": -3
+137. ""broader conceptual focus"": 0
+138. ""discussion on limitations"": 1
+139. ""concise and to-the-point information"": -5
+140. ""historical specificities"": 4
+141. ""legislative focus"": 1
+142. ""brief overview"": -4
+143. ""specification-oriented approach"": -3
+144. ""gold of machine perception"": 0
+145. ""applications of machine perception"": -2
+146. ""physical examples"": -3
+147. ""clear definitions"": -4"
+Technicality of Language,"Thank you. Now I would like you to use these axes to categorize the specific examples I gave you. To start with, let's consider this axis you chose:
+3. **Technicality of Language**: This axis ranges from simple language wording like 'plain language explanations', 'simple language', and 'simple examples', to complex or specialized language such as 'scientific terminology', 'technical jargon', and 'technical language/terms'. This will be key for understanding a system's behavior in order to adapt it to different user groups and their preferences or needs.
+
+I want you to provide a description of each end of this axis then I want you to consider each of the specific descriptions from before, and determine whether they are relevant to this axis. If they are, say how they score along this axis on a scale of -5 to 5, where -5 means they are strongly towards the low end of the axis, and 5 means they are strongly towards the high end. Provide your output as a tuple of each end of the axis and then list of descriptions followed by the score, each on one line, such as
+Axis descriptions: (""{description of low end}"", ""{description of high end}"")
+1. ""{first description}"": {score from -5 to 5}
+2. ""{second description}"": {score from -5 to 5}
+Include only the descriptions that are relevant to the axis. As a reminder, here are the descriptions from before:
+[
+psychological context
+detailed historical elements
+mention of specific techniques
+direct application scenarios
+detailed descriptions
+lack of response
+balance of public and creator interests
+philosophical reasoning
+more examples of processes
+straightforward and didactic
+disease and information spread mention
+emphasis on academic credentials
+application usage
+ethical considerations
+use of examples
+mention of obsolescence
+application-oriented details
+explanation of material type
+variety of ai forms
+more concise
+adherence to prompt
+academic tone
+large-scale statistics
+more steps in process explained
+usage of metaphor (images)
+explanation of modularity concept
+highlight on the role of questioning
+more detailed interactions
+explanatory format
+usage examples
+simplified expressions
+generic terms
+complexity in explanation
+ability to answer
+brevity in response
+focus on project's theoretical goals
+explicit timeframe
+mention of ai techniques
+simple language
+cross-disciplinary coverage
+human learning analogy
+specificity and detail
+explanation of peptide roles
+focus on agi
+explanation of training process
+explicit mention of important concepts
+detailed process of testing
+referencing academic fields
+contextual information
+quotes from harari's works
+proactive instruction
+greater specificity in examples
+explanation of work's importance
+plain language explanations
+cryptanalysis contribution mention
+data sets division strategies
+extended backstory
+compressed explanation
+detail on research activities
+association with key-value pairs
+contextual applications
+practical application mention
+business and practical applications
+performance evaluation
+issues on consciousness
+potential tool references
+detailed tactics
+potential impact explication
+mention of reductionism
+brief definitions
+scientific context
+evolutionary process explanation
+distinct categorization of ai
+scientific terminology
+direct narrative
+detail about employment history
+detail on classification types
+discussion on the benefits of discovery
+loose use of 'database' term
+definition elaboration
+link to cognitive science
+detail and elaboration
+more theoretical overview
+description of win conditions
+historical context
+concise explanation
+specific details
+more maintenance & operation insights
+detailed explanations
+research references
+technical jargon
+direct definition
+task execution focus
+simplicity and clarity
+association with established entities
+mention of work settings
+academic honors and affiliations
+specific terminology use
+collaborative efforts
+step-by-step explanation
+real world examples
+proactive strategies
+reference to related technologies
+focus on personal life
+specific hardware components
+technical language/terms
+hugo award details
+explanatory continuity
+fixed set of possible actions concept
+specific methodologies
+terminology use
+focus on function and steps
+applicable fields mention
+discussion of visual perception
+less detailed about specific works/contributions
+details on product offerings
+employer-worker dynamics
+direct response
+quoted experts
+example tasks
+specific use-cases of concept
+discussion about combination with black-box testing
+less detail
+explicit mention of security
+specific axiom explanation
+simple examples
+discussion of software
+precise scientific terms
+conciseness
+more examples
+mention of radical breakthroughs
+practical applications
+general information
+detail on truth function types
+usage of specific examples
+individual sensory modalities mention
+direct quoting of sources
+statistical data
+function and methods description
+broader conceptual focus
+discussion on limitations
+concise and to-the-point information
+historical specificities
+legislative focus
+brief overview
+specification-oriented approach
+gold of machine perception
+applications of machine perception
+physical examples
+clear definitions
+]
+Please output your response as a tuple of axis descriptions on the first lines, and the following lines as a numbered list of the decriptions and their score. Please ensure the descriptions of each end of the axis are clear, distinct from each other, and under 5 words.
+","Axis descriptions: (""Simple, Plain Language"", ""Complex, Technical Language"")
+
+1. ""psychological context"": -1
+2. ""mention of specific techniques"": 4
+3. ""direct application scenarios"": -1
+4. ""detailed descriptions"": 2
+5. ""more examples of processes"": 0
+6. ""straightforward and didactic"": -5
+7. ""emphasis on academic credentials"": 1
+8. ""application usage"": 0
+9. ""use of examples"": -3
+10. ""mention of obsolescence"": 3
+11. ""application-oriented details"": 3
+12. ""explanation of material type"": 2
+13. ""variety of ai forms"": 3
+14. ""adherence to prompt"": 0
+15. ""academic tone"": 4
+16. ""more steps in process explained"": 1
+17. ""usage of metaphor (images)"": -2
+18. ""explanation of modularity concept"": 4
+19. ""more detailed interactions"": 1
+20. ""explanatory format"": 0
+21. ""usage examples"": -1
+22. ""simplified expressions"": -5
+23. ""generic terms"": -5
+24. ""complexity in explanation"": 5
+25. ""explicit timeframe"": 0
+26. ""mention of ai techniques"": 5
+27. ""simple language"": -5
+28. ""human learning analogy"": -2
+29. ""specificity and detail"": 1
+30. ""explanation of peptide roles"": 4
+31. ""explanation of training process"": 2
+32. ""explicit mention of important concepts"": 2
+33. ""detailed process of testing"": 3
+34. ""referencing academic fields"": 3
+35. ""contextual information"": 0
+36. ""proactive instruction"": 0
+37. ""greater specificity in examples"": 1
+38. ""plain language explanations"": -5
+39. ""cryptanalysis contribution mention"": 3
+40. ""data sets division strategies"": 4
+41. ""compressed explanation"": 2
+42. ""detail on research activities"": 3
+43. ""association with key-value pairs"": 3
+44. ""contextual applications"": 1
+45. ""business and practical applications"": 1
+46. ""performance evaluation"": 3
+47. ""potential tool references"": 4
+48. ""detailed tactics"": 3
+49. ""mention of reductionism"": 4
+50. ""brief definitions"": -3
+51. ""scientific context"": 3
+52. ""distinct categorization of ai"": 4
+53. ""scientific terminology"": 5
+54. ""detail about employment history"": -1
+55. ""detail on classification types"": 4
+56. ""loose use of 'database' term"": 1
+57. ""definition elaboration"": 2
+58. ""more theoretical overview"": 3
+59. ""concise explanation"": -2
+60. ""specific details"": 2
+61. ""detailed explanations"": 3
+62. ""research references"": 4
+63. ""technical jargon"": 5
+64. ""direct definition"": 0
+65. ""simplicity and clarity"": -5
+66. ""specific terminology use"": 5
+67. ""step-by-step explanation"": -1
+68. ""real world examples"": -2
+69. ""reference to related technologies"": 2
+70. ""specific hardware components"": 4
+71. ""technical language/terms"": 5
+72. ""specific methodologies"": 4
+73. ""terminology use"": 4
+74. ""focus on function and steps"": 0
+75. ""discussion of visual perception"": 3
+76. ""details on product offerings"": -1
+77. ""direct response"": -3
+78. ""example tasks"": -1
+79. ""specific use-cases of concept"": 2
+80. ""less detail"": -5
+81. ""explicit mention of security"": 1
+82. ""specific axiom explanation"": 5
+83. ""simple examples"": -5
+84. ""discussion of software"": 3
+85. ""precise scientific terms"": 5
+86. ""conciseness"": -3
+87. ""practical applications"": 0
+88. ""detail on truth function types"": 4
+89. ""usage of specific examples"": 0
+90. ""direct quoting of sources"": 0
+91. ""function and methods description"": 3
+92. ""discussion on limitations"": 0
+93. ""concise and to-the-point information"": -3
+94. ""specific specification-oriented approach"": 2
+95. ""applications of machine perception"": 1
+96. ""clear definitions"": -3"
+Functional Explanation,"Thank you. Now I would like you to use these axes to categorize the specific examples I gave you. To start with, let's consider this axis you chose:
+4. **Functional Explanation**: This includes 'direct application scenario', 'explanatory format', 'function and methods description', etc. This pattern explains how diligently the model describes the functionalities, process, or application scenarios, helping us determine how well the model can clarify or elaborate complex processes and ideas.
+
+I want you to provide a description of each end of this axis then I want you to consider each of the specific descriptions from before, and determine whether they are relevant to this axis. If they are, say how they score along this axis on a scale of -5 to 5, where -5 means they are strongly towards the low end of the axis, and 5 means they are strongly towards the high end. Provide your output as a tuple of each end of the axis and then list of descriptions followed by the score, each on one line, such as
+Axis descriptions: (""{description of low end}"", ""{description of high end}"")
+1. ""{first description}"": {score from -5 to 5}
+2. ""{second description}"": {score from -5 to 5}
+Include only the descriptions that are relevant to the axis. As a reminder, here are the descriptions from before:
+[
+psychological context
+detailed historical elements
+mention of specific techniques
+direct application scenarios
+detailed descriptions
+lack of response
+balance of public and creator interests
+philosophical reasoning
+more examples of processes
+straightforward and didactic
+disease and information spread mention
+emphasis on academic credentials
+application usage
+ethical considerations
+use of examples
+mention of obsolescence
+application-oriented details
+explanation of material type
+variety of ai forms
+more concise
+adherence to prompt
+academic tone
+large-scale statistics
+more steps in process explained
+usage of metaphor (images)
+explanation of modularity concept
+highlight on the role of questioning
+more detailed interactions
+explanatory format
+usage examples
+simplified expressions
+generic terms
+complexity in explanation
+ability to answer
+brevity in response
+focus on project's theoretical goals
+explicit timeframe
+mention of ai techniques
+simple language
+cross-disciplinary coverage
+human learning analogy
+specificity and detail
+explanation of peptide roles
+focus on agi
+explanation of training process
+explicit mention of important concepts
+detailed process of testing
+referencing academic fields
+contextual information
+quotes from harari's works
+proactive instruction
+greater specificity in examples
+explanation of work's importance
+plain language explanations
+cryptanalysis contribution mention
+data sets division strategies
+extended backstory
+compressed explanation
+detail on research activities
+association with key-value pairs
+contextual applications
+practical application mention
+business and practical applications
+performance evaluation
+issues on consciousness
+potential tool references
+detailed tactics
+potential impact explication
+mention of reductionism
+brief definitions
+scientific context
+evolutionary process explanation
+distinct categorization of ai
+scientific terminology
+direct narrative
+detail about employment history
+detail on classification types
+discussion on the benefits of discovery
+loose use of 'database' term
+definition elaboration
+link to cognitive science
+detail and elaboration
+more theoretical overview
+description of win conditions
+historical context
+concise explanation
+specific details
+more maintenance & operation insights
+detailed explanations
+research references
+technical jargon
+direct definition
+task execution focus
+simplicity and clarity
+association with established entities
+mention of work settings
+academic honors and affiliations
+specific terminology use
+collaborative efforts
+step-by-step explanation
+real world examples
+proactive strategies
+reference to related technologies
+focus on personal life
+specific hardware components
+technical language/terms
+hugo award details
+explanatory continuity
+fixed set of possible actions concept
+specific methodologies
+terminology use
+focus on function and steps
+applicable fields mention
+discussion of visual perception
+less detailed about specific works/contributions
+details on product offerings
+employer-worker dynamics
+direct response
+quoted experts
+example tasks
+specific use-cases of concept
+discussion about combination with black-box testing
+less detail
+explicit mention of security
+specific axiom explanation
+simple examples
+discussion of software
+precise scientific terms
+conciseness
+more examples
+mention of radical breakthroughs
+practical applications
+general information
+detail on truth function types
+usage of specific examples
+individual sensory modalities mention
+direct quoting of sources
+statistical data
+function and methods description
+broader conceptual focus
+discussion on limitations
+concise and to-the-point information
+historical specificities
+legislative focus
+brief overview
+specification-oriented approach
+gold of machine perception
+applications of machine perception
+physical examples
+clear definitions
+]
+Please output your response as a tuple of axis descriptions on the first lines, and the following lines as a numbered list of the decriptions and their score. Please ensure the descriptions of each end of the axis are clear, distinct from each other, and under 5 words.
+","Axis descriptions: (""Low Functionality Explanation & Clarity"", ""High Functionality Explanation & Clarity"")
+
+1. ""psychological context"": -3
+2. ""detailed historical elements"": -2
+3. ""mention of specific techniques"": 1
+4. ""direct application scenarios"": 4
+5. ""detailed descriptions"": 2
+6. ""lack of response"": -5
+7. ""balance of public and creator interests"": -1
+8. ""philosophical reasoning"": -3
+9. ""more examples of processes"": 4
+10. ""straightforward and didactic"": 3
+11. ""disease and information spread mention"": -1
+12. ""emphasis on academic credentials"": -4
+13. ""application usage"": 3
+14. ""ethical considerations"": -2
+15. ""use of examples"": 2
+16. ""mention of obsolescence"": -1
+17. ""application-oriented details"": 5
+18. ""explanation of material type"": 1
+19. ""variety of ai forms"": -1
+20. ""more concise"": -2
+21. ""adherence to prompt"": 0
+22. ""academic tone"": -4
+23. ""large-scale statistics"": -3
+24. ""more steps in process explained"": 5
+25. ""usage of metaphor (images)"": 0
+26. ""explanation of modularity concept"": 2
+27. ""highlight on the role of questioning"": -1
+28. ""more detailed interactions"": 3
+29. ""explanatory format"": 4
+30. ""usage examples"": 3
+31. ""simplified expressions"": -2
+32. ""generic terms"": -4
+33. ""complexity in explanation"": 1
+34. ""ability to answer"": 1
+35. ""brevity in response"": -5
+36. ""focus on project's theoretical goals"": -3
+37. ""explicit timeframe"": 0
+38. ""mention of ai techniques"": 2
+39. ""simple language"": -2
+40. ""cross-disciplinary coverage"": -3
+41. ""human learning analogy"": -1
+42. ""specificity and detail"": 4
+43. ""explanation of peptide roles"": 1
+44. ""focus on agi"": -2
+45. ""explanation of training process"": 5
+46. ""explicit mention of important concepts"": 3
+47. ""detailed process of testing"": 4
+48. ""referencing academic fields"": -4
+49. ""contextual information"": 0
+50. ""quotes from harari's works"": -3
+51. ""proactive instruction"": 1
+52. ""greater specificity in examples"": 4
+53. ""explanation of work's importance"": 2
+54. ""plain language explanations"": -1
+55. ""cryptanalysis contribution mention"": -2
+56. ""data sets division strategies"": 3
+57. ""extended backstory"": -3
+58. ""compressed explanation"": -4
+59. ""detail on research activities"": 3
+60. ""association with key-value pairs"": 0
+61. ""contextual applications"": 2
+62. ""practical application mention"": 4
+63. ""business and practical applications"": 5
+64. ""performance evaluation"": 1
+65. ""issues on consciousness"": -4
+66. ""potential tool references"": 3
+67. ""detailed tactics"": 4
+68. ""potential impact explication"": 1
+69. ""mention of reductionism"": -1
+70. ""brief definitions"": -2
+71. ""scientific context"": -3
+72. ""evolutionary process explanation"": 2
+73. ""distinct categorization of ai"": 0
+74. ""scientific terminology"": -4
+75. ""direct narrative"": -2
+76. ""detail about employment history"": -3
+77. ""detail on classification types"": 3
+78. ""discussion on the benefits of discovery"": 1
+79. ""loose use of 'database' term"": -3 
+80. ""definition elaboration"": 1
+81. ""link to cognitive science"": -1
+82. ""detail and elaboration"": 5
+83. ""more theoretical overview"": -5
+84. ""description of win conditions"": 3
+85. ""historical context"": -3
+86. ""concise explanation"": -1
+87. ""specific details"": 3
+88. ""more maintenance & operation insights"": 5
+89. ""detailed explanations"": 4
+90. ""research references"": -1
+91. ""technical jargon"": -3
+92. ""direct definition"": 2
+93. ""task execution focus"": 4
+94. ""simplicity and clarity"": -2
+95. ""association with established entities"": -1
+96. ""mention of work settings"": -2
+97. ""academic honors and affiliations"": -4
+98. ""specific terminology use"": 1
+99. ""collaborative efforts"": -1
+100. ""step-by-step explanation"": 5
+101. ""real world examples"": 4
+102. ""proactive strategies"": 1
+103. ""reference to related technologies"": 2
+104. ""focus on personal life"": -5
+105. ""specific hardware components"": 3
+106. ""technical language/terms"": -2
+107. ""hugo award details"": -4
+108. ""explanatory continuity"": 3
+109. ""fixed set of possible actions concept"": 2
+110. ""specific methodologies"": 4
+111. ""terminology use"": -1
+112. ""focus on function and steps"": 5
+113. ""applicable fields mention"": 2
+114. ""discussion of visual perception"": 2
+115. ""less detailed about specific works/contributions"": -3
+116. ""details on product offerings"": 3
+117. ""employer-worker dynamics"": -1
+118. ""direct response"": 1
+119. ""quoted experts"": -2
+120. ""example tasks"": 3
+121. ""specific use-cases of concept"": 5
+122. ""discussion about combination with black-box testing"": 1
+123. ""less detail"": -5
+124. ""explicit mention of security"": 0
+125. ""specific axiom explanation"": 3
+126. ""simple examples"": 0
+127. ""discussion of software"": 1
+128. ""precise scientific terms"": -2
+129. ""conciseness"": -4
+130. ""more examples"": 3
+131. ""mention of radical breakthroughs"": -1
+132. ""practical applications"": 4
+133. ""general information"": -2
+134. ""detail on truth function types"": 3
+135. ""usage of specific examples"": 4
+136. ""individual sensory modalities mention"": 1
+137. ""direct quoting of sources"": -1
+138. ""statistical data"": -2
+139. ""function and methods description"": 5
+140. ""broader conceptual focus"": -3
+141. ""discussion on limitations"": 1
+142. ""concise and to-the-point information"": -2
+143. ""historical specificities"": -3
+144. ""legislative focus"": -4
+145. ""brief overview"": -5
+146. ""specification-oriented approach"": 4
+147. ""gold of machine perception"": -2
+148. ""applications of machine perception"": 5
+149. ""physical examples"": 3
+150. ""clear definitions"": 2."
+Academic Affiliation and References,"Thank you. Now I would like you to use these axes to categorize the specific examples I gave you. To start with, let's consider this axis you chose:
+5. **Academic Affiliation and References**: This involves 'emphasis on academic credentials', 'academic tone', 'research references', 'academic honors and affiliations'. This pattern underscores the capacity of the model to incorporate authoritative and validated sources. Understanding this behavior would be pivotal in assessing the credibility and reliability of the model's outputs.
+
+I want you to provide a description of each end of this axis then I want you to consider each of the specific descriptions from before, and determine whether they are relevant to this axis. If they are, say how they score along this axis on a scale of -5 to 5, where -5 means they are strongly towards the low end of the axis, and 5 means they are strongly towards the high end. Provide your output as a tuple of each end of the axis and then list of descriptions followed by the score, each on one line, such as
+Axis descriptions: (""{description of low end}"", ""{description of high end}"")
+1. ""{first description}"": {score from -5 to 5}
+2. ""{second description}"": {score from -5 to 5}
+Include only the descriptions that are relevant to the axis. As a reminder, here are the descriptions from before:
+[
+psychological context
+detailed historical elements
+mention of specific techniques
+direct application scenarios
+detailed descriptions
+lack of response
+balance of public and creator interests
+philosophical reasoning
+more examples of processes
+straightforward and didactic
+disease and information spread mention
+emphasis on academic credentials
+application usage
+ethical considerations
+use of examples
+mention of obsolescence
+application-oriented details
+explanation of material type
+variety of ai forms
+more concise
+adherence to prompt
+academic tone
+large-scale statistics
+more steps in process explained
+usage of metaphor (images)
+explanation of modularity concept
+highlight on the role of questioning
+more detailed interactions
+explanatory format
+usage examples
+simplified expressions
+generic terms
+complexity in explanation
+ability to answer
+brevity in response
+focus on project's theoretical goals
+explicit timeframe
+mention of ai techniques
+simple language
+cross-disciplinary coverage
+human learning analogy
+specificity and detail
+explanation of peptide roles
+focus on agi
+explanation of training process
+explicit mention of important concepts
+detailed process of testing
+referencing academic fields
+contextual information
+quotes from harari's works
+proactive instruction
+greater specificity in examples
+explanation of work's importance
+plain language explanations
+cryptanalysis contribution mention
+data sets division strategies
+extended backstory
+compressed explanation
+detail on research activities
+association with key-value pairs
+contextual applications
+practical application mention
+business and practical applications
+performance evaluation
+issues on consciousness
+potential tool references
+detailed tactics
+potential impact explication
+mention of reductionism
+brief definitions
+scientific context
+evolutionary process explanation
+distinct categorization of ai
+scientific terminology
+direct narrative
+detail about employment history
+detail on classification types
+discussion on the benefits of discovery
+loose use of 'database' term
+definition elaboration
+link to cognitive science
+detail and elaboration
+more theoretical overview
+description of win conditions
+historical context
+concise explanation
+specific details
+more maintenance & operation insights
+detailed explanations
+research references
+technical jargon
+direct definition
+task execution focus
+simplicity and clarity
+association with established entities
+mention of work settings
+academic honors and affiliations
+specific terminology use
+collaborative efforts
+step-by-step explanation
+real world examples
+proactive strategies
+reference to related technologies
+focus on personal life
+specific hardware components
+technical language/terms
+hugo award details
+explanatory continuity
+fixed set of possible actions concept
+specific methodologies
+terminology use
+focus on function and steps
+applicable fields mention
+discussion of visual perception
+less detailed about specific works/contributions
+details on product offerings
+employer-worker dynamics
+direct response
+quoted experts
+example tasks
+specific use-cases of concept
+discussion about combination with black-box testing
+less detail
+explicit mention of security
+specific axiom explanation
+simple examples
+discussion of software
+precise scientific terms
+conciseness
+more examples
+mention of radical breakthroughs
+practical applications
+general information
+detail on truth function types
+usage of specific examples
+individual sensory modalities mention
+direct quoting of sources
+statistical data
+function and methods description
+broader conceptual focus
+discussion on limitations
+concise and to-the-point information
+historical specificities
+legislative focus
+brief overview
+specification-oriented approach
+gold of machine perception
+applications of machine perception
+physical examples
+clear definitions
+]
+Please output your response as a tuple of axis descriptions on the first lines, and the following lines as a numbered list of the decriptions and their score. Please ensure the descriptions of each end of the axis are clear, distinct from each other, and under 5 words.
+","Axis descriptions: (""Low academic references and affiliation"", ""High academic references and affiliation"")
+
+1. ""psychological context"": -3
+2. ""detailed historical elements"": -1
+3. ""mention of specific techniques"": 1
+4. ""direct application scenarios"": -4
+5. ""detailed descriptions"": 1
+6. ""lack of response"": -5
+7. ""balance of public and creator interests"": -2
+8. ""philosophical reasoning"": -1
+9. ""more examples of processes"": -2
+10. ""straightforward and didactic"": 0
+11. ""disease and information spread mention"": 0
+12. ""emphasis on academic credentials"": 5
+13. ""application usage"": -3
+14. ""ethical considerations"": 1
+15. ""use of examples"": 0
+16. ""mention of obsolescence"": 1
+17. ""application-oriented details"": -3
+18. ""explanation of material type"": -1
+19. ""variety of ai forms"": 0
+20. ""more concise"": 0
+21. ""adherence to prompt"": -1
+22. ""academic tone"": 4
+23. ""large-scale statistics"": 2
+24. ""more steps in process explained"": 0
+25. ""usage of metaphor (images)"": -2
+26. ""explanation of modularity concept"": 1
+27. ""highlight on the role of questioning"": 2
+28. ""more detailed interactions"": 1
+29. ""explanatory format"": 0
+30. ""usage examples"": -2
+31. ""simplified expressions"": -4
+32. ""generic terms"": -5
+33. ""complexity in explanation"": 2
+34. ""ability to answer"": 1
+35. ""brevity in response"": -3
+36. ""focus on project's theoretical goals"": 3
+37. ""explicit timeframe"": 1
+38. ""mention of ai techniques"": 2
+39. ""simple language"": -4
+40. ""cross-disciplinary coverage"": 2
+41. ""human learning analogy"": -1
+42. ""specificity and detail"": 1
+43. ""explanation of peptide roles"": 2
+44. ""focus on agi"": 3
+45. ""explanation of training process"": 3
+46. ""explicit mention of important concepts"": 3
+47. ""detailed process of testing"": 3
+48. ""referencing academic fields"": 5
+49. ""contextual information"": -1
+50. ""quotes from harari's works"": 1
+51. ""proactive instruction"": 0
+52. ""greater specificity in examples"": 0
+53. ""explanation of work's importance"": 2
+54. ""plain language explanations"": -4
+55. ""cryptanalysis contribution mention"": 2
+56. ""data sets division strategies"": 3
+57. ""extended backstory"": -1
+58. ""compressed explanation"": 0
+59. ""detail on research activities"": 4
+60. ""association with key-value pairs"": 0
+61. ""contextual applications"": -2
+62. ""practical application mention"": -3
+63. ""business and practical applications"": -3
+64. ""performance evaluation"": 1
+65. ""issues on consciousness"": 0
+66. ""potential tool references"": 2
+67. ""detailed tactics"": 1
+68. ""potential impact explication"": 2
+69. ""mention of reductionism"": 1
+70. ""brief definitions"": -4
+71. ""scientific context"": 3
+72. ""evolutionary process explanation"": 2
+73. ""distinct categorization of ai"": 2
+74. ""scientific terminology"": 4
+75. ""direct narrative"": -2
+76. ""detail about employment history"": -3
+77. ""detail on classification types"": 1
+78. ""discussion on the benefits of discovery"": 3
+79. ""loose use of 'database' term"": -1
+80. ""definition elaboration"": 1
+81. ""link to cognitive science"": 4
+82. ""detail and elaboration"": 1
+83. ""more theoretical overview"": 4
+84. ""description of win conditions"": -1
+85. ""historical context"": -1
+86. ""concise explanation"": -3
+87. ""specific details"": 0
+88. ""more maintenance & operation insights"": -2
+89. ""detailed explanations"": 1
+90. ""research references"": 5
+91. ""technical jargon"": 3
+92. ""direct definition"": -1
+93. ""task execution focus"": -2
+94. ""simplicity and clarity"": -3
+95. ""association with established entities"": 2
+96. ""mention of work settings"": -1
+97. ""academic honors and affiliations"": 5
+98. ""specific terminology use"": 4
+99. ""collaborative efforts"": 2
+100. ""step-by-step explanation"": 1
+101. ""real world examples"": -3
+102. ""proactive strategies"": -1
+103. ""reference to related technologies"": 1
+104. ""focus on personal life"": -5
+105. ""specific hardware components"": 1
+106. ""technical language/terms"": 4
+107. ""hugo award details"": 3
+108. ""explanatory continuity"": 2
+109. ""fixed set of possible actions concept"": 2
+110. ""specific methodologies"": 4
+111. ""terminology use"": 3
+112. ""focus on function and steps"": 1
+113. ""applicable fields mention"": 1
+114. ""discussion of visual perception"": 2
+115. ""less detailed about specific works/contributions"": -4
+116. ""details on product offerings"": -2
+117. ""employer-worker dynamics"": -3
+118. ""direct response"": -1
+119. ""quoted experts"": 4
+120. ""example tasks"": -1
+121. ""specific use-cases of concept"": 1
+122. ""discussion about combination with black-box testing"": 3
+123. ""less detail"": -4
+124. ""explicit mention of security"": 2
+125. ""specific axiom explanation"": 3
+126. ""simple examples"": -3
+127. ""discussion of software"": 1
+128. ""precise scientific terms"": 5
+129. ""conciseness"": -3
+130. ""more examples"": -1
+131. ""mention of radical breakthroughs"": 3
+132. ""practical applications"": -3
+133. ""general information"": -4
+134. ""detail on truth function types"": 3
+135. ""usage of specific examples"": 1
+136. ""individual sensory modalities mention"": 1
+137. ""direct quoting of sources"": 5
+138. ""statistical data"": 2
+139. ""function and methods description"": 3
+140. ""broader conceptual focus"": 3
+141. ""discussion on limitations"": 3
+142. ""concise and to-the-point information"": -2
+143. ""historical specificities"": 1
+144. ""legislative focus"": 1
+145. ""brief overview"": -4
+146. ""specification-oriented approach"": 0
+147. ""gold of machine perception"": -1
+148. ""applications of machine perception"": -3
+149. ""physical examples"": -4
+150. ""clear definitions"": -2"
+Practical Application and Scenario,"Thank you. Now I would like you to use these axes to categorize the specific examples I gave you. To start with, let's consider this axis you chose:
+6. **Practical Application and Scenario**: Certain descriptions suggest actual use cases or scenarios like 'practical application mention', 'real-world examples', 'specific use-cases of concept'. Thorough understanding of this pattern can give insight into how widely and accurately the language model can apply learned information, contributing to system debugging and usability improvement.
+
+I want you to provide a description of each end of this axis then I want you to consider each of the specific descriptions from before, and determine whether they are relevant to this axis. If they are, say how they score along this axis on a scale of -5 to 5, where -5 means they are strongly towards the low end of the axis, and 5 means they are strongly towards the high end. Provide your output as a tuple of each end of the axis and then list of descriptions followed by the score, each on one line, such as
+Axis descriptions: (""{description of low end}"", ""{description of high end}"")
+1. ""{first description}"": {score from -5 to 5}
+2. ""{second description}"": {score from -5 to 5}
+Include only the descriptions that are relevant to the axis. As a reminder, here are the descriptions from before:
+[
+psychological context
+detailed historical elements
+mention of specific techniques
+direct application scenarios
+detailed descriptions
+lack of response
+balance of public and creator interests
+philosophical reasoning
+more examples of processes
+straightforward and didactic
+disease and information spread mention
+emphasis on academic credentials
+application usage
+ethical considerations
+use of examples
+mention of obsolescence
+application-oriented details
+explanation of material type
+variety of ai forms
+more concise
+adherence to prompt
+academic tone
+large-scale statistics
+more steps in process explained
+usage of metaphor (images)
+explanation of modularity concept
+highlight on the role of questioning
+more detailed interactions
+explanatory format
+usage examples
+simplified expressions
+generic terms
+complexity in explanation
+ability to answer
+brevity in response
+focus on project's theoretical goals
+explicit timeframe
+mention of ai techniques
+simple language
+cross-disciplinary coverage
+human learning analogy
+specificity and detail
+explanation of peptide roles
+focus on agi
+explanation of training process
+explicit mention of important concepts
+detailed process of testing
+referencing academic fields
+contextual information
+quotes from harari's works
+proactive instruction
+greater specificity in examples
+explanation of work's importance
+plain language explanations
+cryptanalysis contribution mention
+data sets division strategies
+extended backstory
+compressed explanation
+detail on research activities
+association with key-value pairs
+contextual applications
+practical application mention
+business and practical applications
+performance evaluation
+issues on consciousness
+potential tool references
+detailed tactics
+potential impact explication
+mention of reductionism
+brief definitions
+scientific context
+evolutionary process explanation
+distinct categorization of ai
+scientific terminology
+direct narrative
+detail about employment history
+detail on classification types
+discussion on the benefits of discovery
+loose use of 'database' term
+definition elaboration
+link to cognitive science
+detail and elaboration
+more theoretical overview
+description of win conditions
+historical context
+concise explanation
+specific details
+more maintenance & operation insights
+detailed explanations
+research references
+technical jargon
+direct definition
+task execution focus
+simplicity and clarity
+association with established entities
+mention of work settings
+academic honors and affiliations
+specific terminology use
+collaborative efforts
+step-by-step explanation
+real world examples
+proactive strategies
+reference to related technologies
+focus on personal life
+specific hardware components
+technical language/terms
+hugo award details
+explanatory continuity
+fixed set of possible actions concept
+specific methodologies
+terminology use
+focus on function and steps
+applicable fields mention
+discussion of visual perception
+less detailed about specific works/contributions
+details on product offerings
+employer-worker dynamics
+direct response
+quoted experts
+example tasks
+specific use-cases of concept
+discussion about combination with black-box testing
+less detail
+explicit mention of security
+specific axiom explanation
+simple examples
+discussion of software
+precise scientific terms
+conciseness
+more examples
+mention of radical breakthroughs
+practical applications
+general information
+detail on truth function types
+usage of specific examples
+individual sensory modalities mention
+direct quoting of sources
+statistical data
+function and methods description
+broader conceptual focus
+discussion on limitations
+concise and to-the-point information
+historical specificities
+legislative focus
+brief overview
+specification-oriented approach
+gold of machine perception
+applications of machine perception
+physical examples
+clear definitions
+]
+Please output your response as a tuple of axis descriptions on the first lines, and the following lines as a numbered list of the decriptions and their score. Please ensure the descriptions of each end of the axis are clear, distinct from each other, and under 5 words.
+","Axis descriptions: (""No Practical Applications"", ""Multiple Practical Applications"")
+
+1. ""psychological context"": -2
+2. ""detailed historical elements"": -2
+3. ""mention of specific techniques"": 0
+4. ""direct application scenarios"": 4
+5. ""detailed descriptions"": 0
+6. ""balance of public and creator interests"": -3
+7. ""philosophical reasoning"": -3
+8. ""more examples of processes"": 1
+9. ""disease and information spread mention"": -2
+10. ""application usage"": 4
+11. ""ethical considerations"": -2
+12. ""use of examples"": 1
+13. ""mention of obsolescence"": -2
+14. ""application-oriented details"": 5
+15. ""variety of ai forms"": -2
+16. ""explanatory format"": -1
+17. ""usage examples"": 3
+18. ""simplified expressions"": -3
+19. ""complexity in explanation"": -3
+20. ""brevity in response"": -3
+21. ""explicit timeframe"": -2
+22. ""mention of ai techniques"": -1
+23. ""cross-disciplinary coverage"": -2
+24. ""human learning analogy"": -3
+25. ""specificity and detail"": -1
+26. ""focus on agi"": -2
+27. ""explanation of training process"": 3
+28. ""explicit mention of important concepts"": 2
+29. ""referencing academic fields"": -4
+30. ""contextual information"": -1
+31. ""proactive instruction"": -1
+32. ""greater specificity in examples"": 2
+33. ""cryptanalysis contribution mention"": -3
+34. ""data sets division strategies"": 1
+35. ""extended backstory"": -5
+36. ""detail on research activities"": -1
+37. ""association with key-value pairs"": -1
+38. ""contextual applications"": 2
+39. ""practical application mention"": 5
+40. ""business and practical applications"": 5
+41. ""performance evaluation"": 1
+42. ""potential tool references"": 3
+43. ""potential impact explication"": 2
+44. ""scientific context"": -3
+45. ""distinct categorization of ai"": -1
+46. ""scientific terminology"": -4
+47. ""direct narrative"": -3
+48. ""discussion on the benefits of discovery"": 1
+49. ""definition elaboration"": -1
+50. ""detail and elaboration"": -2
+51. ""more theoretical overview"": -3
+52. ""historical context"": -4
+53. ""specific details"": 0
+54. ""more maintenance & operation insights"": 3
+55. ""technical jargon"": -4
+56. ""direct definition"": -2
+57. ""task execution focus"": 3
+58. ""simplicity and clarity"": -2
+59. ""mention of work settings"": -1
+60. ""specific terminology use"": -3
+61. ""collaborative efforts"": -3
+62. ""step-by-step explanation"": 2
+63. ""real world examples"": 5
+64. ""proactive strategies"": -1
+65. ""reference to related technologies"": 2
+66. ""specific hardware components"": 1
+67. ""technical language/terms"": -4
+68. ""explanatory continuity"": -1
+69. ""specific methodologies"": 2
+70. ""terminology use"": -2
+71. ""focus on function and steps"": 3
+72. ""applicable fields mention"": 2
+73. ""discussion of visual perception"": -2
+74. ""less detailed about specific works/contributions"": -3
+75. ""details on product offerings"": 3
+76. ""quoted experts"": -3
+77. ""example tasks"": 4
+78. ""specific use-cases of concept"": 5
+79. ""less detail"": -3
+80. ""explicit mention of security"": -1
+81. ""simple examples"": 1
+82. ""discussion of software"": 1
+83. ""precise scientific terms"": -4
+84. ""more examples"": 1
+85. ""practical applications"": 5
+86. ""general information"": -3
+87. ""usage of specific examples"": 3
+88. ""individual sensory modalities mention"": -2
+89. ""direct quoting of sources"": -4
+90. ""statistical data"": -2
+91. ""function and methods description"": 1
+92. ""broader conceptual focus"": -3
+93. ""discussion on limitations"": 2
+94. ""historical specificities"": -4
+95. ""brief overview"": -2
+96. ""specification-oriented approach"": 1
+97. ""applications of machine perception"": 4
+98. ""physical examples"": 3
+99. ""clear definitions"": -1. 
+
+I excluded only ""lack of response"" from this list as it does not have a practical application or otherwise. The remaining descriptions were rated from -5 (no practical application) to 5 (multiple practical applications), based on how they were related to this axis."
+Explanation and Elaboration,"Thank you. Now I would like you to use these axes to categorize the specific examples I gave you. To start with, let's consider this axis you chose:
+7. **Explanation and Elaboration**: This is found in descriptions like 'step-by-step explanation', 'definition elaboration', 'detailed explanations'. This axis can help assess the model's capability for didactic and explanatory content.
+
+I want you to provide a description of each end of this axis then I want you to consider each of the specific descriptions from before, and determine whether they are relevant to this axis. If they are, say how they score along this axis on a scale of -5 to 5, where -5 means they are strongly towards the low end of the axis, and 5 means they are strongly towards the high end. Provide your output as a tuple of each end of the axis and then list of descriptions followed by the score, each on one line, such as
+Axis descriptions: (""{description of low end}"", ""{description of high end}"")
+1. ""{first description}"": {score from -5 to 5}
+2. ""{second description}"": {score from -5 to 5}
+Include only the descriptions that are relevant to the axis. As a reminder, here are the descriptions from before:
+[
+psychological context
+detailed historical elements
+mention of specific techniques
+direct application scenarios
+detailed descriptions
+lack of response
+balance of public and creator interests
+philosophical reasoning
+more examples of processes
+straightforward and didactic
+disease and information spread mention
+emphasis on academic credentials
+application usage
+ethical considerations
+use of examples
+mention of obsolescence
+application-oriented details
+explanation of material type
+variety of ai forms
+more concise
+adherence to prompt
+academic tone
+large-scale statistics
+more steps in process explained
+usage of metaphor (images)
+explanation of modularity concept
+highlight on the role of questioning
+more detailed interactions
+explanatory format
+usage examples
+simplified expressions
+generic terms
+complexity in explanation
+ability to answer
+brevity in response
+focus on project's theoretical goals
+explicit timeframe
+mention of ai techniques
+simple language
+cross-disciplinary coverage
+human learning analogy
+specificity and detail
+explanation of peptide roles
+focus on agi
+explanation of training process
+explicit mention of important concepts
+detailed process of testing
+referencing academic fields
+contextual information
+quotes from harari's works
+proactive instruction
+greater specificity in examples
+explanation of work's importance
+plain language explanations
+cryptanalysis contribution mention
+data sets division strategies
+extended backstory
+compressed explanation
+detail on research activities
+association with key-value pairs
+contextual applications
+practical application mention
+business and practical applications
+performance evaluation
+issues on consciousness
+potential tool references
+detailed tactics
+potential impact explication
+mention of reductionism
+brief definitions
+scientific context
+evolutionary process explanation
+distinct categorization of ai
+scientific terminology
+direct narrative
+detail about employment history
+detail on classification types
+discussion on the benefits of discovery
+loose use of 'database' term
+definition elaboration
+link to cognitive science
+detail and elaboration
+more theoretical overview
+description of win conditions
+historical context
+concise explanation
+specific details
+more maintenance & operation insights
+detailed explanations
+research references
+technical jargon
+direct definition
+task execution focus
+simplicity and clarity
+association with established entities
+mention of work settings
+academic honors and affiliations
+specific terminology use
+collaborative efforts
+step-by-step explanation
+real world examples
+proactive strategies
+reference to related technologies
+focus on personal life
+specific hardware components
+technical language/terms
+hugo award details
+explanatory continuity
+fixed set of possible actions concept
+specific methodologies
+terminology use
+focus on function and steps
+applicable fields mention
+discussion of visual perception
+less detailed about specific works/contributions
+details on product offerings
+employer-worker dynamics
+direct response
+quoted experts
+example tasks
+specific use-cases of concept
+discussion about combination with black-box testing
+less detail
+explicit mention of security
+specific axiom explanation
+simple examples
+discussion of software
+precise scientific terms
+conciseness
+more examples
+mention of radical breakthroughs
+practical applications
+general information
+detail on truth function types
+usage of specific examples
+individual sensory modalities mention
+direct quoting of sources
+statistical data
+function and methods description
+broader conceptual focus
+discussion on limitations
+concise and to-the-point information
+historical specificities
+legislative focus
+brief overview
+specification-oriented approach
+gold of machine perception
+applications of machine perception
+physical examples
+clear definitions
+]
+Please output your response as a tuple of axis descriptions on the first lines, and the following lines as a numbered list of the decriptions and their score. Please ensure the descriptions of each end of the axis are clear, distinct from each other, and under 5 words.
+","Axis descriptions: (""Minimal explanation/elaboration"", ""High level of explanation/elaboration"")
+
+1. ""psychological context"": -2
+2. ""detailed historical elements"": 4
+3. ""mention of specific techniques"": 3
+4. ""detailed descriptions"": 5
+5. ""lack of response"": -5
+6. ""more examples of processes"": 4
+7. ""straightforward and didactic"": 3
+8. ""emphasis on academic credentials"": -1
+9. ""use of examples"": 3
+10. ""application-oriented details"": 2
+11. ""explanation of material type"": 3
+12. ""more concise"": -4
+13. ""more steps in process explained"": 4
+14. ""explanation of modularity concept"": 4
+15. ""more detailed interactions"": 4
+16. ""explanatory format"": 5
+17. ""simplified expressions"": -3
+18. ""complexity in explanation"": 5
+19. ""brevity in response"": -5
+20. ""explicit timeframe"": -1
+21. ""cross-disciplinary coverage"": 0
+22. ""specificity and detail"": 4
+23. ""explanation of peptide roles"": 4
+24. ""explanation of training process"": 4
+25. ""explicit mention of important concepts"": 1
+26. ""detailed process of testing"": 4
+27. ""contextual information"": 1
+28. ""greater specificity in examples"": 3
+29. ""plain language explanations"": 2
+30. ""compressed explanation"": -2
+31. ""detail on research activities"": 2
+32. ""practical application mention"": 1
+33. ""potential impact explication"": 2
+34. ""brief definitions"": -3
+35. ""scientific context"": 0
+36. ""distinct categorization of ai"": 1
+37. ""detail about employment history"": 1
+38. ""detail on classification types"": 4
+39. ""definition elaboration"": 4
+40. ""detail and elaboration"": 5
+41. ""description of win conditions"": 2
+42. ""specific details"": 3
+43. ""detailed explanations"": 5
+44. ""direct definition"": 2
+45. ""simplicity and clarity"": -3
+46. ""specific terminology use"": 2
+47. ""step-by-step explanation"": 5
+48. ""explanatory continuity"": 4
+49. ""focus on function and steps"": 4
+50. ""less detailed about specific works/contributions"": -4
+51. ""less detail"": -5
+52. ""specific axiom explanation"": 4
+53. ""simple examples"": -1
+54. ""conciseness"": -5
+55. ""detail on truth function types"": 3
+56. ""usage of specific examples"": 3
+57. ""function and methods description"": 4
+58. ""concise and to-the-point information"": -4
+59. ""specification-oriented approach"": 1
+60. ""applications of machine perception"": 2
+61. ""clear definitions"": 0"
+Mention of Specific Techniques and Concepts,"Thank you. Now I would like you to use these axes to categorize the specific examples I gave you. To start with, let's consider this axis you chose:
+8. **Mention of Specific Techniques and Concepts**: This axis includes 'mention of ai techniques', 'mention of obsolescence', 'mention of radical breakthroughs'. The pattern helps determine how adept the model is at addressing and elaborating on varied techniques and concepts.
+
+I want you to provide a description of each end of this axis then I want you to consider each of the specific descriptions from before, and determine whether they are relevant to this axis. If they are, say how they score along this axis on a scale of -5 to 5, where -5 means they are strongly towards the low end of the axis, and 5 means they are strongly towards the high end. Provide your output as a tuple of each end of the axis and then list of descriptions followed by the score, each on one line, such as
+Axis descriptions: (""{description of low end}"", ""{description of high end}"")
+1. ""{first description}"": {score from -5 to 5}
+2. ""{second description}"": {score from -5 to 5}
+Include only the descriptions that are relevant to the axis. As a reminder, here are the descriptions from before:
+[
+psychological context
+detailed historical elements
+mention of specific techniques
+direct application scenarios
+detailed descriptions
+lack of response
+balance of public and creator interests
+philosophical reasoning
+more examples of processes
+straightforward and didactic
+disease and information spread mention
+emphasis on academic credentials
+application usage
+ethical considerations
+use of examples
+mention of obsolescence
+application-oriented details
+explanation of material type
+variety of ai forms
+more concise
+adherence to prompt
+academic tone
+large-scale statistics
+more steps in process explained
+usage of metaphor (images)
+explanation of modularity concept
+highlight on the role of questioning
+more detailed interactions
+explanatory format
+usage examples
+simplified expressions
+generic terms
+complexity in explanation
+ability to answer
+brevity in response
+focus on project's theoretical goals
+explicit timeframe
+mention of ai techniques
+simple language
+cross-disciplinary coverage
+human learning analogy
+specificity and detail
+explanation of peptide roles
+focus on agi
+explanation of training process
+explicit mention of important concepts
+detailed process of testing
+referencing academic fields
+contextual information
+quotes from harari's works
+proactive instruction
+greater specificity in examples
+explanation of work's importance
+plain language explanations
+cryptanalysis contribution mention
+data sets division strategies
+extended backstory
+compressed explanation
+detail on research activities
+association with key-value pairs
+contextual applications
+practical application mention
+business and practical applications
+performance evaluation
+issues on consciousness
+potential tool references
+detailed tactics
+potential impact explication
+mention of reductionism
+brief definitions
+scientific context
+evolutionary process explanation
+distinct categorization of ai
+scientific terminology
+direct narrative
+detail about employment history
+detail on classification types
+discussion on the benefits of discovery
+loose use of 'database' term
+definition elaboration
+link to cognitive science
+detail and elaboration
+more theoretical overview
+description of win conditions
+historical context
+concise explanation
+specific details
+more maintenance & operation insights
+detailed explanations
+research references
+technical jargon
+direct definition
+task execution focus
+simplicity and clarity
+association with established entities
+mention of work settings
+academic honors and affiliations
+specific terminology use
+collaborative efforts
+step-by-step explanation
+real world examples
+proactive strategies
+reference to related technologies
+focus on personal life
+specific hardware components
+technical language/terms
+hugo award details
+explanatory continuity
+fixed set of possible actions concept
+specific methodologies
+terminology use
+focus on function and steps
+applicable fields mention
+discussion of visual perception
+less detailed about specific works/contributions
+details on product offerings
+employer-worker dynamics
+direct response
+quoted experts
+example tasks
+specific use-cases of concept
+discussion about combination with black-box testing
+less detail
+explicit mention of security
+specific axiom explanation
+simple examples
+discussion of software
+precise scientific terms
+conciseness
+more examples
+mention of radical breakthroughs
+practical applications
+general information
+detail on truth function types
+usage of specific examples
+individual sensory modalities mention
+direct quoting of sources
+statistical data
+function and methods description
+broader conceptual focus
+discussion on limitations
+concise and to-the-point information
+historical specificities
+legislative focus
+brief overview
+specification-oriented approach
+gold of machine perception
+applications of machine perception
+physical examples
+clear definitions
+]
+Please output your response as a tuple of axis descriptions on the first lines, and the following lines as a numbered list of the decriptions and their score. Please ensure the descriptions of each end of the axis are clear, distinct from each other, and under 5 words.
+","Axis descriptions: (""Minimal or No Mention of Techniques/Concepts"", ""Explicit and Detailed Mention of Techniques/Concepts"")
+1. ""psychological context"": -2
+2. ""detailed historical elements"": -2
+3. ""mention of specific techniques"": 5
+4. ""direct application scenarios"": 2
+5. ""detailed descriptions"": 1
+6. ""balance of public and creator interests"": -3
+7. ""philosophical reasoning"": -4
+8. ""more examples of processes"": 3
+9. ""straightforward and didactic"": -1
+10. ""disease and information spread mention"": -1
+11. ""emphasis on academic credentials"": -3
+12. ""application usage"": 1
+13. ""ethical considerations"": -4
+14. ""use of examples"": 2
+15. ""mention of obsolescence"": 5
+16. ""application-oriented details"": 3
+17. ""explanation of material type"": 3
+18. ""variety of ai forms"": 3
+19. ""more concise"": -2
+20. ""adherence to prompt"": -3
+21. ""academic tone"": -3
+22. ""large-scale statistics"": -1
+23. ""more steps in process explained"": 4
+24. ""usage of metaphor (images)"": -2
+25. ""explanation of modularity concept"": 5
+26. ""highlight on the role of questioning"": -2
+27. ""more detailed interactions"": 1
+28. ""explanatory format"": 1
+29. ""usage examples"": 2
+30. ""simplified expressions"": -3
+31. ""generic terms"": -4
+32. ""complexity in explanation"": 4
+33. ""ability to answer"": -3
+34. ""brevity in response"": -5
+35. ""focus on project's theoretical goals"": 0
+36. ""explicit timeframe"": -3
+37. ""mention of ai techniques"": 5
+38. ""simple language"": -4
+39. ""cross-disciplinary coverage"": 1
+40. ""human learning analogy"": -1
+41. ""specificity and detail"": 3
+42. ""explanation of peptide roles"": 4
+43. ""focus on agi"": 2
+44. ""explanation of training process"": 4
+45. ""explicit mention of important concepts"": 4
+46. ""detailed process of testing"": 3
+47. ""referencing academic fields"": -1
+48. ""contextual information"": -1
+49. ""quotes from harari's works"": -3
+50. ""proactive instruction"": -2
+51. ""greater specificity in examples"": 3
+52. ""explanation of work's importance"": -1
+53. ""plain language explanations"": -5
+54. ""cryptanalysis contribution mention"": -1
+55. ""data sets division strategies"": 4
+56. ""extended backstory"": -3
+57. ""compressed explanation"": -4
+58. ""detail on research activities"": 2
+59. ""association with key-value pairs"": 4
+60. ""contextual applications"": 1
+61. ""practical application mention"": 2
+62. ""business and practical applications"": 2
+63. ""performance evaluation"": 0
+64. ""issues on consciousness"": -2
+65. ""potential tool references"": 2
+66. ""detailed tactics"": 3
+67. ""potential impact explication"": -1
+68. ""mention of reductionism"": 4
+69. ""brief definitions"": -4
+70. ""scientific context"": -2
+71. ""evolutionary process explanation"": 4
+72. ""distinct categorization of ai"": 4
+73. ""scientific terminology"": 1
+74. ""direct narrative"": -3
+75. ""detail about employment history"": -5
+76. ""detail on classification types"": 4
+77. ""discussion on the benefits of discovery"": -1
+78. ""loose use of 'database' term"": -2
+79. ""definition elaboration"": 2
+80. ""link to cognitive science"": 3
+81. ""detail and elaboration"": 3
+82. ""more theoretical overview"": 0
+83. ""description of win conditions"": 2
+84. ""historical context"": -2
+85. ""concise explanation"": -4
+86. ""specific details"": 3
+87. ""more maintenance & operation insights"": 3
+88. ""detailed explanations"": 1
+89. ""research references"": 0
+90. ""technical jargon"": 1
+91. ""direct definition"": 3
+92. ""task execution focus"": 1
+93. ""simplicity and clarity"": -5
+94. ""association with established entities"": -1
+95. ""mention of work settings"": -2
+96. ""academic honors and affiliations"": -5
+97. ""specific terminology use"": 4
+98. ""collaborative efforts"": -1
+99. ""step-by-step explanation"": 3
+100. ""real world examples"": 2
+101. ""proactive strategies"": -1
+102. ""reference to related technologies"": 4
+103. ""focus on personal life"": -5
+104. ""specific hardware components"": 3
+105. ""technical language/terms"": 3
+106. ""hugo award details"": -5
+107. ""explanatory continuity"": 1
+108. ""fixed set of possible actions concept"": 4
+109. ""specific methodologies"": 5
+110. ""terminology use"": 4
+111. ""focus on function and steps"": 3
+112. ""applicable fields mention"": 2
+113. ""discussion of visual perception"": 4
+114. ""less detailed about specific works/contributions"": -4
+115. ""details on product offerings"": 3
+116. ""employer-worker dynamics"": -3
+117. ""direct response"": -1
+118. ""quoted experts"": -2
+119. ""example tasks"": 0
+120. ""specific use-cases of concept"": 4
+121. ""discussion about combination with black-box testing"": 4
+122. ""less detail"": -5
+123. ""explicit mention of security"": 2
+124. ""specific axiom explanation"": 5
+125. ""simple examples"": -1
+126. ""discussion of software"": 2
+127. ""precise scientific terms"": 5
+128. ""conciseness"": -5
+129. ""more examples"": 2
+130. ""mention of radical breakthroughs"": 5
+131. ""practical applications"": 3
+132. ""general information"": -3
+133. ""detail on truth function types"": 5
+134. ""usage of specific examples"": 5
+135. ""individual sensory modalities mention"": 2
+136. ""direct quoting of sources"": -2
+137. ""statistical data"": -1
+138. ""function and methods description"": 4
+139. ""broader conceptual focus"": 1
+140. ""discussion on limitations"": 0
+141. ""concise and to-the-point information"": -5
+142. ""historical specificities"": -2
+143. ""legislative focus"": -3
+144. ""brief overview"": -5
+145. ""specification-oriented approach"": 2
+146. ""gold of machine perception"": 0
+147. ""applications of machine perception"": 2
+148. ""physical examples"": 1
+149. ""clear definitions"": 1"
+Use of Metaphors and Analogies,"Thank you. Now I would like you to use these axes to categorize the specific examples I gave you. To start with, let's consider this axis you chose:
+9. **Use of Metaphors and Analogies**: 'human learning analogy', 'usage of metaphor (images)'. This aspect is key in understanding the language model's ability to simplify complex ideas through metaphors, an important factor for comprehensibility and user-friendliness. 
+
+I want you to provide a description of each end of this axis then I want you to consider each of the specific descriptions from before, and determine whether they are relevant to this axis. If they are, say how they score along this axis on a scale of -5 to 5, where -5 means they are strongly towards the low end of the axis, and 5 means they are strongly towards the high end. Provide your output as a tuple of each end of the axis and then list of descriptions followed by the score, each on one line, such as
+Axis descriptions: (""{description of low end}"", ""{description of high end}"")
+1. ""{first description}"": {score from -5 to 5}
+2. ""{second description}"": {score from -5 to 5}
+Include only the descriptions that are relevant to the axis. As a reminder, here are the descriptions from before:
+[
+psychological context
+detailed historical elements
+mention of specific techniques
+direct application scenarios
+detailed descriptions
+lack of response
+balance of public and creator interests
+philosophical reasoning
+more examples of processes
+straightforward and didactic
+disease and information spread mention
+emphasis on academic credentials
+application usage
+ethical considerations
+use of examples
+mention of obsolescence
+application-oriented details
+explanation of material type
+variety of ai forms
+more concise
+adherence to prompt
+academic tone
+large-scale statistics
+more steps in process explained
+usage of metaphor (images)
+explanation of modularity concept
+highlight on the role of questioning
+more detailed interactions
+explanatory format
+usage examples
+simplified expressions
+generic terms
+complexity in explanation
+ability to answer
+brevity in response
+focus on project's theoretical goals
+explicit timeframe
+mention of ai techniques
+simple language
+cross-disciplinary coverage
+human learning analogy
+specificity and detail
+explanation of peptide roles
+focus on agi
+explanation of training process
+explicit mention of important concepts
+detailed process of testing
+referencing academic fields
+contextual information
+quotes from harari's works
+proactive instruction
+greater specificity in examples
+explanation of work's importance
+plain language explanations
+cryptanalysis contribution mention
+data sets division strategies
+extended backstory
+compressed explanation
+detail on research activities
+association with key-value pairs
+contextual applications
+practical application mention
+business and practical applications
+performance evaluation
+issues on consciousness
+potential tool references
+detailed tactics
+potential impact explication
+mention of reductionism
+brief definitions
+scientific context
+evolutionary process explanation
+distinct categorization of ai
+scientific terminology
+direct narrative
+detail about employment history
+detail on classification types
+discussion on the benefits of discovery
+loose use of 'database' term
+definition elaboration
+link to cognitive science
+detail and elaboration
+more theoretical overview
+description of win conditions
+historical context
+concise explanation
+specific details
+more maintenance & operation insights
+detailed explanations
+research references
+technical jargon
+direct definition
+task execution focus
+simplicity and clarity
+association with established entities
+mention of work settings
+academic honors and affiliations
+specific terminology use
+collaborative efforts
+step-by-step explanation
+real world examples
+proactive strategies
+reference to related technologies
+focus on personal life
+specific hardware components
+technical language/terms
+hugo award details
+explanatory continuity
+fixed set of possible actions concept
+specific methodologies
+terminology use
+focus on function and steps
+applicable fields mention
+discussion of visual perception
+less detailed about specific works/contributions
+details on product offerings
+employer-worker dynamics
+direct response
+quoted experts
+example tasks
+specific use-cases of concept
+discussion about combination with black-box testing
+less detail
+explicit mention of security
+specific axiom explanation
+simple examples
+discussion of software
+precise scientific terms
+conciseness
+more examples
+mention of radical breakthroughs
+practical applications
+general information
+detail on truth function types
+usage of specific examples
+individual sensory modalities mention
+direct quoting of sources
+statistical data
+function and methods description
+broader conceptual focus
+discussion on limitations
+concise and to-the-point information
+historical specificities
+legislative focus
+brief overview
+specification-oriented approach
+gold of machine perception
+applications of machine perception
+physical examples
+clear definitions
+]
+Please output your response as a tuple of axis descriptions on the first lines, and the following lines as a numbered list of the decriptions and their score. Please ensure the descriptions of each end of the axis are clear, distinct from each other, and under 5 words.
+","Axis descriptions: (""Low use of metaphors and analogies"", ""High use of metaphors and analogies"")
+
+1. ""usage of metaphor (images)"": 5
+2. ""human learning analogy"": 4
+3. ""explanation of modularity concept"": 2
+4. ""potential tool references"": 1
+5. ""explanatory continuity"": 0
+6. ""description of win conditions"": -1
+7. ""direct definition"": -2
+8. ""specific terminology use"": -4
+9. ""direct quoting of sources"": -5 
+
+Here, a higher score represents high usage and skillful implementation of metaphors and analogies in the given context, while lower scores indicate direct, straightforward language without much reliance on such figurative language tools."
+Directness of Response,"Thank you. Now I would like you to use these axes to categorize the specific examples I gave you. To start with, let's consider this axis you chose:
+10. **Directness of Response**: This involves 'direct response', 'direct application scenario', 'direct definition'. This pattern clarifies how the model responds to a prompt; it can be crucial for ensuring the productivity and relevancy of model’s response.
+
+I want you to provide a description of each end of this axis then I want you to consider each of the specific descriptions from before, and determine whether they are relevant to this axis. If they are, say how they score along this axis on a scale of -5 to 5, where -5 means they are strongly towards the low end of the axis, and 5 means they are strongly towards the high end. Provide your output as a tuple of each end of the axis and then list of descriptions followed by the score, each on one line, such as
+Axis descriptions: (""{description of low end}"", ""{description of high end}"")
+1. ""{first description}"": {score from -5 to 5}
+2. ""{second description}"": {score from -5 to 5}
+Include only the descriptions that are relevant to the axis. As a reminder, here are the descriptions from before:
+[
+psychological context
+detailed historical elements
+mention of specific techniques
+direct application scenarios
+detailed descriptions
+lack of response
+balance of public and creator interests
+philosophical reasoning
+more examples of processes
+straightforward and didactic
+disease and information spread mention
+emphasis on academic credentials
+application usage
+ethical considerations
+use of examples
+mention of obsolescence
+application-oriented details
+explanation of material type
+variety of ai forms
+more concise
+adherence to prompt
+academic tone
+large-scale statistics
+more steps in process explained
+usage of metaphor (images)
+explanation of modularity concept
+highlight on the role of questioning
+more detailed interactions
+explanatory format
+usage examples
+simplified expressions
+generic terms
+complexity in explanation
+ability to answer
+brevity in response
+focus on project's theoretical goals
+explicit timeframe
+mention of ai techniques
+simple language
+cross-disciplinary coverage
+human learning analogy
+specificity and detail
+explanation of peptide roles
+focus on agi
+explanation of training process
+explicit mention of important concepts
+detailed process of testing
+referencing academic fields
+contextual information
+quotes from harari's works
+proactive instruction
+greater specificity in examples
+explanation of work's importance
+plain language explanations
+cryptanalysis contribution mention
+data sets division strategies
+extended backstory
+compressed explanation
+detail on research activities
+association with key-value pairs
+contextual applications
+practical application mention
+business and practical applications
+performance evaluation
+issues on consciousness
+potential tool references
+detailed tactics
+potential impact explication
+mention of reductionism
+brief definitions
+scientific context
+evolutionary process explanation
+distinct categorization of ai
+scientific terminology
+direct narrative
+detail about employment history
+detail on classification types
+discussion on the benefits of discovery
+loose use of 'database' term
+definition elaboration
+link to cognitive science
+detail and elaboration
+more theoretical overview
+description of win conditions
+historical context
+concise explanation
+specific details
+more maintenance & operation insights
+detailed explanations
+research references
+technical jargon
+direct definition
+task execution focus
+simplicity and clarity
+association with established entities
+mention of work settings
+academic honors and affiliations
+specific terminology use
+collaborative efforts
+step-by-step explanation
+real world examples
+proactive strategies
+reference to related technologies
+focus on personal life
+specific hardware components
+technical language/terms
+hugo award details
+explanatory continuity
+fixed set of possible actions concept
+specific methodologies
+terminology use
+focus on function and steps
+applicable fields mention
+discussion of visual perception
+less detailed about specific works/contributions
+details on product offerings
+employer-worker dynamics
+direct response
+quoted experts
+example tasks
+specific use-cases of concept
+discussion about combination with black-box testing
+less detail
+explicit mention of security
+specific axiom explanation
+simple examples
+discussion of software
+precise scientific terms
+conciseness
+more examples
+mention of radical breakthroughs
+practical applications
+general information
+detail on truth function types
+usage of specific examples
+individual sensory modalities mention
+direct quoting of sources
+statistical data
+function and methods description
+broader conceptual focus
+discussion on limitations
+concise and to-the-point information
+historical specificities
+legislative focus
+brief overview
+specification-oriented approach
+gold of machine perception
+applications of machine perception
+physical examples
+clear definitions
+]
+Please output your response as a tuple of axis descriptions on the first lines, and the following lines as a numbered list of the decriptions and their score. Please ensure the descriptions of each end of the axis are clear, distinct from each other, and under 5 words.
+","Axis descriptions: (""Indirect/Vague Response"", ""Direct/Explicit Response"")
+
+1. ""direct application scenarios"": 4
+2. ""lack of response"": -5
+3. ""adherence to prompt"": 3
+4. ""brevity in response"": 0
+5. ""ability to answer"": 2
+6. ""detailed process of testing"": 2
+7. ""brief definitions"": 1
+8. ""direct definition"": 5
+9. ""task execution focus"": 3
+10. ""direct response"": 5
+11. ""explicit mention of security"": 4
+12. ""less detail"": -3
+13. ""practical applications"": 3
+14. ""direct quoting of sources"": 4
+15. ""clear definitions"": 4"
