@@ -110,7 +110,7 @@ And here is my created string:
 
 I got an error when trying to convert this string into a JSON object. Please help me fix this error. Please structure your output such that I can feed it directly into ast.literal_eval() to convert it into a Python object."""
 
-def get_cluster_axes(cluster):
+def get_cluster_axes(cluster, batch = 50):
     cluster_axes_descriptions_prompt = ["""The following are the axes of variation that you can consider when comparing the two model outputs along with a description of how two models (A and B) vary along that axis. Each axis has a name as well as a description of what it means to be low and high on this axis. Many of these axes of variations could be named incorrectly or redundant with other axes. I want to cluster these axes so that I can better understand the general patterns seen in these models without having to look through so many axes. Please cluster this large list of axes into a minimal set of parent axes that cover the entire axis list. Please ensure these parent axes' descriptions of what makes an item high or low on that axis align with the high and low descriptions of the axes they cover. Your new set of axes should be distinct so each of the above axes fit under exactly one of your new axes.
                         
     Here are the axes of varaiation (note each axis is formatted {{axis name}}: High: {{high description}} Low: {{low description}}):
@@ -118,29 +118,30 @@ def get_cluster_axes(cluster):
 
     Again I want to cluster these axes into a minimal set of parent axes that cover the entire axis list. Please ensure these parent axes' descriptions of what makes an item high or low on that axis align with the high and low descriptions of the axes they cover. Your new set of axes should be distinct so each of the above axes fit under exactly one of your new axes. Please ensure each axis and parent axis contains an axis name and descriptions of what it means to score high or low on that axis in the same format as the provided axes.  Please ensure the descriptions of what is considered high and low on each axis is clear, concise, under 10 words. Please focus on patterns that are important for understanding the behavior of a language model, as these will later be used to help debug an important system""", 
                                      
-    """thanks! Now can you please categorize each of the original axes under you new list of axes? Remember that each original axis should only belong to one of the axes you described. Here are the original axes again for reference:
+    """thanks! Now can you please convert this into a list that I can parse in python? Here are the original axes again for reference:
     {axes}
 
-    Please structure your response as a numbered list that adheres to the following format:
+    Please structure your response as a list which can be parsed with ast.literal_eval() in Python. The format should be as follows:
 
-    1. {{new axis name}}:  High: {{new axis high description}} Low: {{new axis low description}}
-    - {{original axis 1}}:  High: {{original axis high description}} Low: {{original axis low description}}
-    - {{original axis 2}}:  High: {{original axis high description}} Low: {{original axis low description}}
-    
-    Please ensure that all the original axes above are categorized under the new axes you provide. Please ensure each of original axes listed above should only belong to one of the axes you described. If there are any axes that do not fit under any of the new axes you provided, please list them under a new axis. If there are any new axes that fit the same original axes, please merge them together. Please output your response as a numbered list that adheres to the format described such that I can pass the output directly into a string parser."""]
+    ["{{axis name}}:  High: {{new axis high description}} Low: {{new axis low description}}", ...]"""]
     smaller_systems_prompt = "You are a helpful assistant. Your outputs adhere to the format given by the user."
 
-    prompt_1 = cluster_axes_descriptions_prompt[0].format(axes="\n".join(cluster))
+    cluster_batch = random.sample(cluster, min(batch, len(cluster)))
+
+    prompt_1 = cluster_axes_descriptions_prompt[0].format(axes="\n".join(cluster_batch))
     cluster_1_reduced_axes = get_llm_output(prompt_1, model="gpt-4-0125-preview", system_prompt=smaller_systems_prompt)
 
     history = [{"role": "user", "content": prompt_1}, {"role": "assistant", "content": cluster_1_reduced_axes}]
-    prompt_2 = cluster_axes_descriptions_prompt[1].format(axes="\n".join(cluster))
+    prompt_2 = cluster_axes_descriptions_prompt[1].format(axes="\n".join(cluster_batch))
     cluster_1_reduced_axes_categorized = get_llm_output(prompt_2, model="gpt-4-0125-preview", system_prompt=smaller_systems_prompt, history=history)
+    # cut any thing before the [ and after the ]
+    cluster_1_reduced_axes_categorized = cluster_1_reduced_axes_categorized[cluster_1_reduced_axes_categorized.find("["):cluster_1_reduced_axes_categorized.rfind("]") + 1]
+    cluster_1_reduced_axes = ast.literal_eval(cluster_1_reduced_axes_categorized)
 
-    return prompt_1, prompt_2, cluster_1_reduced_axes, cluster_1_reduced_axes_categorized
+    return prompt_1, cluster_1_reduced_axes
 
 def convert_axes_clusters_to_df(llm_output):
-    conversion_prompt = """Below is a numbered list of axes of variation with their high and low descriptions, along with the original axes categorized under them. Please convert this list into a JSON format and return it.
+    conversion_prompt = """Below is a numbered list of axes of variation with their high and low descriptions. Please convert this into a list.
 
     {axes}
 
@@ -195,6 +196,7 @@ def convert_axes_clusters_to_df(llm_output):
             cache = False
 
 
+
 # Regular expression to match entities: Capitalized words or phrases followed by a colon
 regex_pattern = r'-\s*(?:\*\*)?([A-Za-z ]+?)(?:\*\*)?:'
 
@@ -244,6 +246,36 @@ def match_axis_to_subaxis(axes, parent_axes):
     categorized_axes = find_closest_parent(axes_embeddings, parent_axes_embeddings)
     return categorized_axes
 
+
+def extract_scores(text):
+        # Create a dictionary to hold the results
+        results = {}
+        
+        # Regex patterns to match the scores and reasoning
+        score_pattern = re.compile(r'Model (A|B) Score: (high|low)', re.IGNORECASE)
+        reasoning_pattern = re.compile(r'Reason:\s*({{reasoning}})', re.IGNORECASE)
+
+        # Find all matches for model scores
+        scores = score_pattern.findall(text)
+        for model, score in scores:
+            if model.upper() == 'A':
+                results["Model A Score"] = score.lower()
+            elif model.upper() == 'B':
+                results["Model B Score"] = score.lower()
+        try:
+            if 'high' in results["Model A Score"].lower() and 'low' in results["Model B Score"].lower():
+                return 1
+            elif 'low' in results["Model A Score"].lower() and 'high' in results["Model B Score"].lower():
+                return -1
+            elif "low" in results["Model A Score"].lower() and "low" in results["Model B Score"].lower():
+                return 0
+            elif "high" in results["Model A Score"].lower() and "high" in results["Model B Score"].lower():
+                return 0
+            else:
+                raise ValueError(f"No score found\n{text}")
+        except:
+            print(f"No score found\n{text}")
+
 import argparse
 def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
@@ -253,6 +285,8 @@ def main():
     parser.add_argument('--model-a-column', type=str, default='human_answers', help='column name for model A')
     parser.add_argument('--model-b-column', type=str, default='chatgpt_answers', help='column name for model B')
     parser.add_argument('--k', type=int, default=3, help='number of clusters')
+    parser.add_argument('--batch-size', default=50, type=int, help='batch size for LLM')
+    parser.add_argument('--num-eval', default=3, type=int, help='model to use')
     args = parser.parse_args()
     # tirn off wandb logging
     if not args.wandb:
@@ -329,17 +363,22 @@ def main():
 
     all_cluster_axes, all_df_cluster, llm_logs = [], [], {}
     for cluster, axes in grouped_axes.items():
-        prompt_1, prompt_2, cluster_axes_1, cluster_axes = get_cluster_axes(axes)
-        output_3, parsed_output3, df_cluster = convert_axes_clusters_to_df(cluster_axes)
-        llm_logs[cluster] = {"prompt_1": prompt_1, "prompt_2": prompt_2, "output_1": cluster_axes_1, "output_2": cluster_axes, "output_3": output_3, "parsed_output3": parsed_output3}
-        df_cluster['cluster'] = cluster + 1
-        all_cluster_axes.append(cluster_axes)
-        all_df_cluster.append(df_cluster)
+        prompt_1, parent_axes = get_cluster_axes(axes)
+        # output_3, parsed_output3, df_cluster = convert_axes_clusters_to_df(cluster_axes)
+        llm_logs[cluster] = {"prompt_1": prompt_1, "output_1": parent_axes}
+        df_cluster = {"axis": [], "cluster": []}
+        for axis in parent_axes:
+            df_cluster['axis'].append(axis)
+            df_cluster['cluster'].append(cluster + 1)
+        # all_cluster_axes.append(cluster_axes)
+        all_df_cluster.append(pd.DataFrame(df_cluster))
         print(f"Cluster {cluster + 1} (length = {len(axes)}) (df length = {len(df_cluster)}):")
         print("")  # New line for readability between clusters
 
     df_cluster = pd.concat(all_df_cluster)
     parent_axes = df_cluster['axis'].unique()
+    parent_axes = list(set(df_cluster['axis']))
+    print(parent_axes)
     print(match_axis_to_subaxis(list(results['axis_description']), parent_axes))
     results['parent_axis'] = match_axis_to_subaxis(list(results['axis_description']), parent_axes)
     df_cluster.to_csv(f"pipeline_results/{save_str}/{tag}-clustering.csv", index=False) 
@@ -434,9 +473,11 @@ def main():
     #turn the values in the parsed_axis_responses column into separate columns
     results = pd.concat([results.drop(['parsed_axis_responses'], axis=1), results['parsed_axis_responses'].apply(pd.Series)], axis=1)
     results['score'] = results.apply(score_models, axis=1)
+    eval_axes = results['parent_axis'].value_counts()[:args.num_eval].index.tolist()
+    print(f"\n\n{results['parent_axis'].value_counts()}\n{eval_axes}\n\n")
 
 
-    def get_score(row):
+    def get_score(row, eval_axes=eval_axes):
         scoring = """I am trying to explain differences in the behavior of two LLM's (A and B) by comparing their outputs over a dataset of question answer tuples. I have of found axes of variation with the meanings of what it means to be low and high on this axis.
 
         For the following question answer tuple, please score the two models on the following axis of variation found in the dataset. The axis of variation is as follows:
@@ -451,41 +492,15 @@ def main():
         Reason: {{reasoning}}
 
         """
+        if row['parent_axis'] not in eval_axes:
+            return None
         scoring_prompt = scoring.format(axes=row["parent_axis"], question=row["prompt"])
         scoring_output = get_llm_output(scoring_prompt, model="gpt-4")
         return scoring_output
 
     # get score after parent axis generation
     results["final_score"] = results.apply(get_score, axis=1)
-
-    def extract_scores(text):
-        # Create a dictionary to hold the results
-        results = {}
-        
-        # Regex patterns to match the scores and reasoning
-        score_pattern = re.compile(r'Model (A|B) Score: (high|low)', re.IGNORECASE)
-        reasoning_pattern = re.compile(r'Reason:\s*({{reasoning}})', re.IGNORECASE)
-
-        # Find all matches for model scores
-        scores = score_pattern.findall(text)
-        for model, score in scores:
-            if model.upper() == 'A':
-                results["Model A Score"] = score.lower()
-            elif model.upper() == 'B':
-                results["Model B Score"] = score.lower()
-        try:
-            if 'high' in results["Model A Score"].lower() and 'low' in results["Model B Score"].lower():
-                return 1
-            elif 'low' in results["Model A Score"].lower() and 'high' in results["Model B Score"].lower():
-                return -1
-            elif "low" in results["Model A Score"].lower() and "low" in results["Model B Score"].lower():
-                return 0
-            elif "high" in results["Model A Score"].lower() and "high" in results["Model B Score"].lower():
-                return 0
-            else:
-                raise ValueError(f"No score found\n{text}")
-        except:
-            print(f"No score found\n{text}")
+    results = results.dropna(subset=["final_score"])
         
     results["final_score_and_reasoning"] = results["final_score"]
     results["final_score"] = results["final_score"].apply(extract_scores)
@@ -493,7 +508,9 @@ def main():
     results.to_csv(f"pipeline_results/{save_str}/{tag}-results_oz.csv", index=False)
     for c in llm_outputs.columns:
         llm_outputs[c] = llm_outputs[c].astype(str)
-    wandb.log({"results": wandb.Table(dataframe=results), "df_cluster": wandb.Table(dataframe=df_cluster), "llm_outputs": wandb.Table(dataframe=llm_outputs)})
+
+    summary_results = results.groupby('parent_axis').agg({'score': 'mean', 'final_score': 'mean'}).reset_index()
+    wandb.log({"results": wandb.Table(dataframe=results), "df_cluster": wandb.Table(dataframe=df_cluster), "llm_outputs": wandb.Table(dataframe=llm_outputs), "summary_results": wandb.Table(dataframe=summary_results)})
 
 # make main function
 if __name__ == "__main__":
