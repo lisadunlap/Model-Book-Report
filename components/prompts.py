@@ -12,6 +12,7 @@ LLM_ONLY_PROMPT = """
 
     Do not have "model A" or "model B" in your response. Please order your response in terms of the most common differences between the two models. Your response:
 """
+
 LLM_ONLY_PROMPT_DUAL = """
     The following are the result of asking two different language models to generate an answer for the same questions:
 
@@ -58,7 +59,7 @@ LLM_ONLY_PROMPT_OZ = """
 
    If there are no differences, write an expty list. For example, {{"Model A contains more": [], "Model B contains more": []}} 
 
-   Here are a list of axes to consider:
+   Here are a list of axes of variation to consider:
 
    {axes}
 

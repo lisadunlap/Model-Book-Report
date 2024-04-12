@@ -3,7 +3,7 @@ import os
 from PIL import Image
 import json
 
-from serve.utils_llm import get_llm_output
+from serve.utils_llm import get_llm_output, get_llm_embedding
 import ast
 import random
 import numpy as np
@@ -43,88 +43,16 @@ def get_cluster_axes(cluster, batch = 50):
     cluster_batch = random.sample(cluster, min(batch, len(cluster)))
 
     prompt_1 = cluster_axes_descriptions_prompt[0].format(axes="\n".join(cluster_batch))
-    cluster_1_reduced_axes = get_llm_output(prompt_1, model="gpt-4-0125-preview", system_prompt=smaller_systems_prompt)
+    cluster_1_reduced_axes = get_llm_output(prompt_1, model="gpt-4", system_prompt=smaller_systems_prompt)
 
     history = [{"role": "user", "content": prompt_1}, {"role": "assistant", "content": cluster_1_reduced_axes}]
     prompt_2 = cluster_axes_descriptions_prompt[1].format(axes="\n".join(cluster_batch))
-    cluster_1_reduced_axes_categorized = get_llm_output(prompt_2, model="gpt-4-0125-preview", system_prompt=smaller_systems_prompt, history=history)
+    cluster_1_reduced_axes_categorized = get_llm_output(prompt_2, model="gpt-4", system_prompt=smaller_systems_prompt, history=history)
     # cut any thing before the [ and after the ]
     cluster_1_reduced_axes_categorized = cluster_1_reduced_axes_categorized[cluster_1_reduced_axes_categorized.find("["):cluster_1_reduced_axes_categorized.rfind("]") + 1]
     cluster_1_reduced_axes = ast.literal_eval(cluster_1_reduced_axes_categorized)
 
     return prompt_1, cluster_1_reduced_axes
-
-def parse_high_low(description):
-    try:
-        # Splitting based on "High:" and "Low:"
-        parts = description.lower().split(" high: ")
-        category = parts[0]
-        high_low_parts = parts[1].lower().split(" low: ")
-        high_description = high_low_parts[0]
-        low_description = high_low_parts[1]
-
-        return {"parent_axis_name": category, "parent_high": high_description, "parent_low": low_description}
-    except:
-        print(f"Error parsing high/low description: {description}")
-        return {"parent_axis_name": "error", "parent_high": "error", "parent_low": "error"}
-
-def parse_axis_responses(axis_response, axis_name):
-        def parse_axis_responses_1(axis_response, axis_name):
-            # The pattern captures the axis name, high description, low description, and the scores for models A and B
-            pattern = r"- (.+?):\n\s+High: (.+?)\n\s+Low: (.+?)\n\s+Model A Score: (.+?)\n\s+Model B Score: (.+)"
-
-            for s in axis_response.split("\n\n"):
-                matches = re.match(pattern, s, re.DOTALL)
-                if matches:
-                    paired_axis_name = matches.group(1).strip()
-                    if axis_name[:len(paired_axis_name)] == paired_axis_name:
-                        return {
-                            "scored_axis_name": matches.group(1).strip(),
-                            "High": matches.group(2).strip(),
-                            "Low": matches.group(3).strip(),
-                            "Model A Score": matches.group(4).strip(),
-                            "Model B Score": matches.group(5).strip()
-                        }
-            return None
-
-        def parse_axis_responses_2(axis_response, axis_name):
-            # Adjusting the regex pattern to optionally match dashes and more flexible whitespace
-            # Also adding case-insensitive matching for the axis name
-            pattern = re.compile(
-                r"- (\w[\w\s]*):\s*\n"  # Axis name capturing group
-                r"(?:\s*-\s*)?High:\s*(.*?)\s*\n"  # High description (optional dash)
-                r"(?:\s*-\s*)?Low:\s*(.*?)\s*\n"  # Low description (optional dash)
-                r"(?:\s*-\s*)?Model A Score:\s*(.*?)\s*\n"  # Model A Score (optional dash)
-                r"(?:\s*-\s*)?Model B Score:\s*(.*?)\s*(?=\n- |\n\n|$)",  # Model B Score (optional dash)
-                re.DOTALL | re.IGNORECASE)
-
-            parsed_entries = []
-            for match in re.finditer(pattern, axis_response):
-                matched_axis_name = match.group(1).strip()
-                # Check if the matched axis name matches the provided axis_name argument (case-insensitive)
-                if matched_axis_name.lower() in axis_name.lower():
-                    return {
-                        "scored_axis_name": matched_axis_name,
-                        "High": match.group(2).strip(),
-                        "Low": match.group(3).strip(),
-                        "Model A Score": match.group(4).strip(),
-                        "Model B Score": match.group(5).strip()
-                    }
-            return None
-        if parse_axis_responses_1(axis_response, axis_name) is not None:
-            return parse_axis_responses_1(axis_response, axis_name)
-        elif parse_axis_responses_2(axis_response, axis_name) is not None:
-            return parse_axis_responses_2(axis_response, axis_name)
-        else:
-            print(f"No matching axis found for {axis_name}")
-            # raise ValueError(f"No matching axis found for {axis_name}")
-            return {
-                        "scored_axis_name": "axis_name",
-                        "High": "",
-                        "Low": "",
-                        "Model A Score": "high",
-                        "Model B Score": "high"
-                    }
         
 remove_duplicates = """Below is a list of axes with a description of what makes a piece of text low or high on this axis. Are there are duplicates in this list? Could any of the low and high descriptions be simplified? Please remove any duplicates and simplify the descriptions of what makes a piece of text low or high on this axis. Please ensure that the descriptions of what makes a piece of text low or high on this axis are distinct and mutually exclusive such that given any pair of text outputs, a human could easily and reliably determine which model is higher or lower on that axis. 
 
@@ -132,36 +60,6 @@ Here is the list of axes:
 {axes}
 
 Please return the list of axes with any duplicates removed and the descriptions of what makes a piece of text low or high on this axis simplified. Please maintain the format of the original axes and return a list like ["{{axis_name}}: High: {{high description}} Low: {{low description}}", ...]. I should be able to parse this output into a string using ast.literal_eval."""
-
-def extract_entities(text):
-    # Regular expression to match entities: Capitalized words or phrases followed by a colon
-    regex_pattern = r'-\s*(?:\*\*)?([A-Za-z ]+?)(?:\*\*)?:'
-    matches = re.findall(regex_pattern, text)
-    return [m for m in matches if m not in ["Model A", "Model B"]]
-
-def extract_axis_descriptions(text):
-
-    lines = text.strip().split('\n')
-
-    # Initialize variables to construct the sections
-    sections = []
-    current_section = []
-
-    # Process each line, building sections while excluding model scores
-    for line in lines:
-        # Check if the line starts a new section or is part of the current one
-        if line.startswith('- ') and current_section:  # If starting a new section and there is a current section
-            # Join the current section lines and add to sections
-            sections.append('\n'.join(current_section).strip().replace("- ", "").replace("\n", ""))
-            current_section = [line]  # Start a new section
-        elif "Model A Score" not in line and "Model B Score" not in line:
-            # If the line is not a model score, add it to the current section
-            current_section.append(line)
-
-    # Don't forget to add the last section
-    if current_section:
-        sections.append('\n'.join(current_section).strip().replace("- ", "").replace("\n", ""))
-    return sections
 
 def match_axis_to_subaxis(axes, parent_axes):
     # Load a pre-trained model
@@ -181,40 +79,59 @@ def match_axis_to_subaxis(axes, parent_axes):
     categorized_axes = find_closest_parent(axes_embeddings, parent_axes_embeddings)
     return categorized_axes
 
+def cluster_hierarchical(embeddings, n_clusters=5):
+    clustering = AgglomerativeClustering(n_clusters=n_clusters).fit(embeddings)
+    unique_labels = np.unique(clustering.labels_)
+    print({i: np.sum(clustering.labels_ == i) for i in unique_labels})
+    return clustering.labels_
 
-def extract_scores(text):
-        # Create a dictionary to hold the results
-        results = {}
-        
-        # Regex patterns to match the scores and reasoning
-        score_pattern = re.compile(r'Model (A|B) Score: (high|low)', re.IGNORECASE)
-        reasoning_pattern = re.compile(r'Reason:\s*({{reasoning}})', re.IGNORECASE)
+def cluster_kmeans(embeddings, n_clusters=5):
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+    kmeans.fit(embeddings)
+    return kmeans.labels_
 
-        # Find all matches for model scores
-        scores = score_pattern.findall(text)
-        for model, score in scores:
-            if model.upper() == 'A':
-                results["Model A Score"] = score.lower()
-            elif model.upper() == 'B':
-                results["Model B Score"] = score.lower()
-        try:
-            if 'high' in results["Model A Score"].lower() and 'low' in results["Model B Score"].lower():
-                return 1
-            elif 'low' in results["Model A Score"].lower() and 'high' in results["Model B Score"].lower():
-                return -1
-            elif "low" in results["Model A Score"].lower() and "low" in results["Model B Score"].lower():
-                return 0
-            elif "high" in results["Model A Score"].lower() and "high" in results["Model B Score"].lower():
-                return 0
-            else:
-                raise ValueError(f"No score found\n{text}")
-        except:
-            print(f"No score found\n{text}")
+def get_score(row, eval_axes, dummy_eval=False):
+    if dummy_eval:
+        return "Model A Score: high\nModel B Score: low\nReason: Because I said so."
+    else:
+        scoring = """I am trying to explain differences in the behavior of two LLM's (A and B) by comparing their outputs over a dataset of question answer tuples. I have of found axes of variation with the meanings of what it means to be low and high on this axis.
 
-from fuzzywuzzy import fuzz
-# Fuzzy match function
-def is_match(str1, str2, threshold=90):
-    return fuzz.ratio(str1, str2) > threshold
+        For the following question answer tuple, please score the two models on the following axis of variation found in the dataset. The axis of variation is as follows:
+        {axes}
+
+        Here is the question answer tuple:
+        {question}
+
+        Please score where the two models fall on the above axis. The score for a given model could be ("low", "high").This will help me understand the differences between the two models in a more structured way. Please return the score followed by an explanantion of your thought process in the format:
+        Model A Score: {{high/low}}
+        Model B Score: {{high/low}}
+        Reason: {{reasoning}}
+
+        """
+        if row['parent_axis'] not in eval_axes:
+            return None
+        scoring_prompt = scoring.format(axes=row["parent_axis"], question=row["prompt"])
+        scoring_output = get_llm_output(scoring_prompt, model="gpt-3.5-turbo")
+        return scoring_output
+    
+def get_embedding_score(axis_low, axis_high, embeddings_a, embeddings_b):
+    # compute similarity between the embeddings of the low and high descriptions of the axis
+    low_embedding = np.expand_dims(np.array(get_llm_embedding(axis_low, "text-embedding-3-small")), axis=0)
+    high_embedding = np.expand_dims(np.array(get_llm_embedding(axis_high, "text-embedding-3-small")), axis=0)
+    embeddings_a = np.expand_dims(np.array(embeddings_a), axis=0)
+    embeddings_b = np.expand_dims(np.array(embeddings_b), axis=0)
+
+    #normalize the embeddings
+    low_embedding = low_embedding / np.linalg.norm(low_embedding)
+    high_embedding = high_embedding / np.linalg.norm(high_embedding)
+    embeddings_a = embeddings_a / np.linalg.norm(embeddings_a)
+    embeddings_b = embeddings_b / np.linalg.norm(embeddings_b)
+
+    low_similarity_a = cosine_similarity(embeddings_a, low_embedding)
+    high_similarity_a = cosine_similarity(embeddings_a, high_embedding)
+    low_similarity_b = cosine_similarity(embeddings_b, low_embedding)
+    high_similarity_b = cosine_similarity(embeddings_b, high_embedding)
+    return {"low_similarity_a": low_similarity_a[0][0], "high_similarity_a": high_similarity_a[0][0], "low_similarity_b": low_similarity_b[0][0], "high_similarity_b": high_similarity_b[0][0]}
 
 import argparse
 def main():
@@ -229,6 +146,7 @@ def main():
     parser.add_argument('--num-eval', default=3, type=int, help='model to use')
     parser.add_argument('--oz', action='store_true', help='use oz prompt')
     parser.add_argument('--dummy-eval', action='store_true', help='use dummy eval prompt')
+    parser.add_argument('--embedding-model', type=str, default='text-embedding-3-small', help='embedding model to use')
     args = parser.parse_args()
 
     np.random.seed(0)
@@ -259,12 +177,15 @@ def main():
         # remove any entired where the model outputs are the same
         df = df[df[args.model_a_column] != df[args.model_b_column]]
         df = df.sample(args.num_samples, random_state=42)
+        # df[f"{args.model_a_column}_embedding"] = df[["question", args.model_a_column]].apply(lambda x: get_llm_embedding(f"User:{x['question']}\Assistant:{x[args.model_a_column]}", args.embedding_model), axis=1)
+        # df[f"{args.model_b_column}_embedding"] = df[["question", args.model_b_column]].apply(lambda x: get_llm_embedding(f"User:{x['question']}\Assistant:{x[args.model_b_column]}", args.embedding_model), axis=1)
 
     model_columns = [args.model_a_column, args.model_b_column]
     oz_axes = ["Tone", "Format", "Level of Detail", "Ability to answer", "Safety", "Approach", "Creativity", "Fluency and crammatical correctness", "Adherence to prompt"]
 
-    # get per question differences
-    # results = {"prompt": [], "response": [], "axes": [], "axis_response": []}
+    ######################################
+    #### get per question differences ####
+    ######################################
     results = {"question":[], "answer_a":[], "answer_b":[], "prompt": [], "response": [], "axes": [], "axis_response": []}
     
     for i, row in tqdm(df.iterrows(), total=df.shape[0]):
@@ -295,24 +216,17 @@ def main():
     results['axis_description'] = results['axis_response'].apply(extract_axis_descriptions)
     results = results.explode('axis_description')
 
+    ######################################
+    #### cluster per question axes    ####
+    ######################################
     all_axis_descriptions = list(set(results['axis_description']))
     # all_axis_descriptions = [desc.split(": ", 1)[1] for desc in all_axis_descriptions]
     # Load a pre-trained sentence transformer model
-    model = SentenceTransformer('all-MiniLM-L6-v2')
-
-    # Generate embeddings for each description
-    embeddings = model.encode(all_axis_descriptions)
-
-    def cluster_hierarchical(embeddings, n_clusters=5):
-        clustering = AgglomerativeClustering(n_clusters=n_clusters).fit(embeddings)
-        unique_labels = np.unique(clustering.labels_)
-        print({i: np.sum(clustering.labels_ == i) for i in unique_labels})
-        return clustering.labels_
-    
-    def cluster_kmeans(embeddings, n_clusters=5):
-        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-        kmeans.fit(embeddings)
-        return kmeans.labels_
+    if args.embedding_model == 'all-MiniLM-L6-v2':
+        model = SentenceTransformer('all-MiniLM-L6-v2')
+        embeddings = model.encode(all_axis_descriptions)
+    else:
+        embeddings = np.stack([get_llm_embedding(d, args.embedding_model) for d in all_axis_descriptions])
 
     # clusters = cluster_kmeans(embeddings, n_clusters=args.k)
     clusters = cluster_hierarchical(embeddings, n_clusters=args.k)
@@ -360,6 +274,10 @@ def main():
     results['parent_axis_deets'] = results['parent_axis'].apply(parse_high_low) # returns {"parent_axis_name": "error", "parent_high": "error", "parent_low": "error"}
     results = pd.concat([results.drop(['parent_axis_deets'], axis=1), results['parent_axis_deets'].apply(pd.Series)], axis=1)
 
+
+    ######################################
+    ############  score axes  ############
+    ######################################
     def score_models(row):
         if 'low' in row["Model A Score"].lower() and 'high' in row["Model B Score"].lower():
             return -1
@@ -374,44 +292,25 @@ def main():
         
     # {"scored_axis_name": axis_name, "High": high description, "Low": low description, "Model A Score": "high", "Model B Score": "high"}
     results["parsed_axis_responses"] = results[['axis_response', 'axis_description']].apply(lambda x: parse_axis_responses(x['axis_response'], x['axis_description']), axis=1)
+    print(results.columns, df.columns)
+    print(results['question'].iloc[0], df['question'].iloc[0])
+    results = results.set_index("question").join(df[['question', f'{args.model_a_column}_embedding', f'{args.model_b_column}_embedding']].set_index("question"), on='question', how='inner', rsuffix='_r')
+    print(len(results), len(results))
     #turn the values in the parsed_axis_responses column into separate columns
     results = pd.concat([results.drop(['parsed_axis_responses'], axis=1), results['parsed_axis_responses'].apply(pd.Series)], axis=1)
     results['score'] = results.apply(score_models, axis=1)
     eval_axes = results['parent_axis'].value_counts()[:args.num_eval].index.tolist()
     print(f"\n\n{results['parent_axis'].value_counts()}\n{eval_axes}\n\n")
 
-
-    def get_score(row, eval_axes=eval_axes):
-        if args.dummy_eval:
-            return "Model A Score: high\nModel B Score: low\nReason: Because I said so."
-        else:
-            scoring = """I am trying to explain differences in the behavior of two LLM's (A and B) by comparing their outputs over a dataset of question answer tuples. I have of found axes of variation with the meanings of what it means to be low and high on this axis.
-
-            For the following question answer tuple, please score the two models on the following axis of variation found in the dataset. The axis of variation is as follows:
-            {axes}
-
-            Here is the question answer tuple:
-            {question}
-
-            Please score where the two models fall on the above axis. The score for a given model could be ("low", "high").This will help me understand the differences between the two models in a more structured way. Please return the score followed by an explanantion of your thought process in the format:
-            Model A Score: {{high/low}}
-            Model B Score: {{high/low}}
-            Reason: {{reasoning}}
-
-            """
-            if row['parent_axis'] not in eval_axes:
-                return None
-            scoring_prompt = scoring.format(axes=row["parent_axis"], question=row["prompt"])
-            scoring_output = get_llm_output(scoring_prompt, model="gpt-3.5-turbo")
-            return scoring_output
+    # results['embedding_eval'] = results.apply(lambda x: get_embedding_score(x['parent_low'], x['parent_high'], x[f"{args.model_a_column}_embedding"], x[f"{args.model_b_column}_embedding"]), axis=1)
 
     # get score after parent axis generation
-    results["final_score"] = results.apply(get_score, axis=1)
+    results["final_score"] = results.apply(lambda x: get_score(x, eval_axes=eval_axes, dummy_eval=args.dummy_eval), axis=1)
+    # results.to_csv(f"pipeline_results/{save_str}/{tag}-embedding.csv", index=False)
     results = results.dropna(subset=["final_score"])
         
     results["final_score_and_reasoning"] = results["final_score"]
     results["final_score"] = results["final_score"].apply(extract_scores)
-    
     results.to_csv(f"pipeline_results/{save_str}/{tag}-results_oz.csv", index=False)
     for c in llm_outputs.columns:
         llm_outputs[c] = llm_outputs[c].astype(str)
