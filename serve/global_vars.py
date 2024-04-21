@@ -1,6 +1,7 @@
 # LLM API
 VICUNA_URL = "http://localhost:8000/v1"
 LLM_CACHE_FILE = "cache/cache_llm"
+LLM_EMBED_CACHE_FILE = "cache/cache_llm_embed"
 
 # VLM API
 LLAVA_CODE_PATH = "./LLaVA"
