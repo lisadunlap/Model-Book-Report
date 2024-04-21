@@ -16,16 +16,16 @@ def get_summary_string(row):
 
     # Assign descriptions based on the score's sign
     if row["final_score"] < 0:
-        low_description, high_description = row["parent_low"], row["parent_high"]
+        low_description, high_description = row["grandparent_low"], row["grandparent_high"]
     elif row["final_score"] > 0:
-        low_description, high_description = row["parent_high"], row["parent_low"]
+        low_description, high_description = row["grandparent_high"], row["grandparent_low"]
     else: # row["score"] == 0
-        low_description = f"{row['parent_low']} and {row['parent_high']}"
+        low_description = f"{row['grandparent_low']} and {row['grandparent_high']}"
         high_description = "" # Not used in this case
 
     # Construct the summary string
-    print(row['parent_axis_name'].split('High'))
-    summary_str = f"* [*{row['parent_axis_name'].split('High')[0].strip()}*] {model_a} {model_a_description}{degree} **{low_description}** while {model_b} {model_b_description}{degree} **{high_description}**"
+    print(row['grandparent_axis_name'].split('High'))
+    summary_str = f"* [*{row['grandparent_axis_name'].split('High')[0].strip()}*] {model_a} {model_a_description}{degree} **{low_description}** while {model_b} {model_b_description}{degree} **{high_description}**"
     return summary_str
 
 def get_total_summary_string(summary_clusters):
@@ -38,9 +38,9 @@ def get_total_summary_string(summary_clusters):
     
 def update_ui(cluster):
     # Filter dataframe based on selected cluster
-    cluster_results = results[results['parent_axis_name'] == cluster]
-    high_description = cluster_results.iloc[0]['parent_high']
-    low_description = cluster_results.iloc[0]['parent_low']
+    cluster_results = results[results['grandparent_axis_name'] == cluster]
+    high_description = cluster_results.iloc[0]['grandparent_high']
+    low_description = cluster_results.iloc[0]['grandparent_low']
     num_questions = len(cluster_results['question'].unique())
     score = cluster_results['final_score'].mean()
     nonzero_score = cluster_results[cluster_results['final_score'] != 0]['final_score'].mean()
@@ -49,8 +49,8 @@ def update_ui(cluster):
     questions = cluster_results.sample(2)
     question_1 = questions.iloc[0]
     question_2 = questions.iloc[1]
-    response_1 = f"{question_1['parent_axis']}\n--------------\nScore: {question_1['final_score']}\n--------------\nFinal Score:\n{question_1['final_score_and_reasoning']}\n--------------\n{question_1['response']}"
-    response_2 = f"{question_2['parent_axis']}\n--------------\nScore: {question_2['final_score']}\n--------------\nFinal Score:\n{question_2['final_score_and_reasoning']}\n--------------\n{question_2['response']}"
+    response_1 = f"{question_1['grandparent_axis']}\n--------------\nScore: {question_1['final_score']}\n--------------\nFinal Score: {question_1['final_score_and_reasoning']}\n--------------\n{question_1['response']}"
+    response_2 = f"{question_2['grandparent_axis']}\n--------------\nScore: {question_2['final_score']}\n--------------\nFinal Score: {question_1['final_score_and_reasoning']}\n--------------\n{question_2['response']}"
 
     def normalize_newlines(text):
         return text.replace("\'", "").replace("\'", "").replace('\r\n', '\n').replace('\n', '  \n')
@@ -74,7 +74,7 @@ if __name__ == "__main__":
 
     # Load your dataframe
     results = pd.read_csv(args.data_path)
-    results['parent_axis_name'] = results['parent_axis_name'].apply(lambda x: x.replace('**', '').replace(":", ""))
+    results['grandparent_axis_name'] = results['grandparent_axis_name'].apply(lambda x: x.replace('**', '').replace(":", ""))
     num_questions = len(results['question'].unique())
 
     custom_css = """
@@ -91,22 +91,22 @@ if __name__ == "__main__":
         markdown_test = """# Lisa trying to convince herself that UI's matter
         ## LLM comparrison
         Given the differenes generated for each (question, answer_A, answer_B tuple), axes are generated which represent the Axes of variation. These represent any general patterns, clusters, or variations in model outputs, with each axis having a notion of low and high.
-        The 'final_score' of each model represents where it falls on a given axis. Start by selecting an Axis to view the scores, descriptions of the axis, and examples of questions that fall on the axis.
+        The 'score' of each model represents where it falls on a given axis. Start by selecting an Axis to view the scores, descriptions of the axis, and examples of questions that fall on the axis.
         """
         gr.Markdown(markdown_test, elem_id="panel")
         # gr.Markdown("# Lisa trying to convince herself that UI's matter")
         # gr.Markdown("## LLM comparrison") 
         # gr.Markdown("Given the differenes generated for each (question, answer_A, answer_B tuple), axes are generated which represent the Axes of variation. These represent any general patterns, clusters, or variations in model outputs, with each axis having a notion of low and high.")
-        # gr.Markdown("The 'final_score' of each model represents where it falls on a given axis. Start by selecting an Axis to view the scores, descriptions of the axis, and examples of questions that fall on the axis.")
+        # gr.Markdown("The 'score' of each model represents where it falls on a given axis. Start by selecting an Axis to view the scores, descriptions of the axis, and examples of questions that fall on the axis.")
         with gr.Row():
             model_a_box = gr.Textbox(label="Model A", value=model_a, interactive=False)
             model_b_box = gr.Textbox(label="Model B", value=model_b, interactive=False)
-        summary_clusters = results.groupby(['parent_axis_name', 'parent_low', 'parent_high']).agg({'final_score': 'mean', 'question': 'count'}).reset_index()
+        summary_clusters = results.groupby(['grandparent_axis_name', 'grandparent_low', 'grandparent_high']).agg({'final_score': 'mean', 'question': 'count'}).reset_index()
         gr.Markdown(get_total_summary_string(summary_clusters))
-        gr.DataFrame(summary_clusters[['parent_axis_name', 'parent_low', 'parent_high', 'question', 'final_score']], label="Summary of Axes")
+        gr.DataFrame(summary_clusters[['grandparent_axis_name', 'grandparent_low', 'grandparent_high', 'question', 'final_score']], label="Summary of Axes")
         # dis_descriptions = f"### Axis Descriptions\n---\n{logs[logs['input'] == 'Axes description'].iloc[0]['output']}"
         with gr.Row():
-            cluster_dropdown = gr.Dropdown(choices=summary_clusters['parent_axis_name'].unique().tolist(), label="Select Axis")
+            cluster_dropdown = gr.Dropdown(choices=summary_clusters['grandparent_axis_name'].unique().tolist(), label="Select Axis")
             regenerate_button = gr.Button("Explore Axis")
         with gr.Row():
             description_low = gr.Textbox(label="Description Low", interactive=False)

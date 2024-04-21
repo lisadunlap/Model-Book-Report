@@ -25,12 +25,12 @@ systems_prompt = "Given a dataset of text outputs from two different large langu
 smaller_systems_prompt = "You are a helpful assistant. Your outputs adhere to the format given by the user."
 
 def get_cluster_axes(cluster, batch = 50):
-    cluster_axes_descriptions_prompt = ["""The following are the axes of variation that you can consider when comparing the two model outputs along with a description of how two models (A and B) vary along that axis. Each axis has a name as well as a description of what it means to be low and high on this axis. Many of these axes of variations could be named incorrectly or redundant with other axes. I want to cluster these axes so that I can better understand the general patterns seen in these models without having to look through so many axes. Please cluster this large list of axes into a minimal set of parent axes that cover the entire axis list. Please ensure these parent axes' descriptions of what makes an item high or low on that axis align with the high and low descriptions of the axes they cover. Your new set of axes should be distinct so each of the above axes fit under exactly one of your new axes.
+    cluster_axes_descriptions_prompt = ["""The following are the axes of variation that you can consider when comparing the two model outputs along with a description of how two models (A and B) vary along that axis. Each axis has a name as well as a description of what it means to be low and high on this axis. Many of these axes of variations could be named incorrectly or redundant with other axes. I want to cluster these axes so that I can better understand the general patterns seen in these models without having to look through so many axes. Please cluster this large list of axes into a minimal set (<=5) of parent axes that cover the entire axis list. Please ensure these parent axes' descriptions of what makes an item high or low on that axis align with the high and low descriptions of the axes they cover. Your new set of axes should be distinct so each of the above axes fit under exactly one of your new axes.
                         
     Here are the axes of varaiation (note each axis is formatted {{axis name}}: High: {{high description}} Low: {{low description}}):
     {axes}
 
-    Again I want to cluster these axes into a minimal set of parent axes that cover the entire axis list. Please ensure these parent axes' descriptions of what makes an item high or low on that axis align with the high and low descriptions of the axes they cover. Your new set of axes should be distinct so each of the above axes fit under exactly one of your new axes. Please ensure each axis and parent axis contains an axis name and descriptions of what it means to score high or low on that axis in the same format as the provided axes.  Please ensure the descriptions of what is considered high and low on each axis is clear, concise, under 10 words. Please focus on patterns that are important for understanding the behavior of a language model, as these will later be used to help debug an important system""", 
+    Again I want to cluster these axes into a minimal set (<=5) of parent axes that cover the entire axis list. Please ensure these parent axes' descriptions of what makes an item high or low on that axis align with the high and low descriptions of the axes they cover. Your new set of axes should be distinct so each of the above axes fit under exactly one of your new axes. Please ensure each axis and parent axis contains an axis name and descriptions of what it means to score high or low on that axis in the same format as the provided axes.  Please ensure the descriptions of what is considered high and low on each axis is clear, concise, under 10 words. Please focus on patterns that are important for understanding the behavior of a language model, as these will later be used to help debug an important system""", 
                                      
     """thanks! Now can you please convert this into a list that I can parse in python? Here are the original axes again for reference:
     {axes}
@@ -62,13 +62,20 @@ Here is the list of axes:
 
 Please return the list of axes with any duplicates removed and the descriptions of what makes a piece of text low or high on this axis simplified. Please maintain the format of the original axes and return a list like ["{{axis_name}}: High: {{high description}} Low: {{low description}}", ...]. I should be able to parse this output into a string using ast.literal_eval."""
 
-def match_axis_to_subaxis(axes, parent_axes):
+def match_axis_to_subaxis(axes, parent_axes, embedding_model):
     # Load a pre-trained model
-    model = SentenceTransformer('all-MiniLM-L6-v2')
 
-    # Generate embeddings
-    axes_embeddings = model.encode(axes)
-    parent_axes_embeddings = model.encode(parent_axes)
+    if embedding_model == 'all-MiniLM-L6-v2':
+        model = SentenceTransformer('all-MiniLM-L6-v2')
+        # Generate embeddings
+        axes_embeddings = model.encode(axes)
+        parent_axes_embeddings = model.encode(parent_axes)
+    else:
+        print(f"Using LLM embeddings ({embedding_model}) for clustering")
+        # embeddings = np.stack([get_llm_embedding(d, embedding_model) for d in all_axis_descriptions])
+        axes_embeddings = np.stack([get_llm_embedding(d, embedding_model) for d in axes])
+        parent_axes_embeddings = np.stack([get_llm_embedding(d, embedding_model) for d in parent_axes])
+
 
     # Function to find the closest parent axis for each axis
     def find_closest_parent(axes_embeddings, parent_axes_embeddings):
@@ -227,6 +234,7 @@ def main():
         model = SentenceTransformer('all-MiniLM-L6-v2')
         embeddings = model.encode(all_axis_descriptions)
     else:
+        print(f"Using LLM embeddings ({args.embedding_model}) for clustering")
         embeddings = np.stack([get_llm_embedding(d, args.embedding_model) for d in all_axis_descriptions])
 
     # clusters = cluster_kmeans(embeddings, n_clusters=args.k)
@@ -266,7 +274,8 @@ def main():
         except:
             print(f"Error in iteration {i}")
             continue
-    results['parent_axis'] = match_axis_to_subaxis(list(results['axis_description']), parent_axes)
+    results['parent_axis'] = match_axis_to_subaxis(list(results['axis_description']), parent_axes, args.embedding_model)
+    df_cluster['parent_axis'] = match_axis_to_subaxis(list(df_cluster['axis']), parent_axes, args.embedding_model)
     df_cluster.to_csv(f"pipeline_results/{save_str}/{tag}-clustering.csv", index=False) 
     results.to_csv(f"pipeline_results/{save_str}/{tag}-results.csv", index=False)
     llm_outputs = pd.DataFrame(llm_logs).T
@@ -290,14 +299,15 @@ def main():
         elif "high" in row["Model A Score"].lower() and "high" in row["Model B Score"].lower():
             return 0
         else:
-            raise ValueError(f"No score found\n{row}")
+            print(f"No score found\n{row['Model A Score']}\n{row['Model B Score']}")
+            return 0
         
 
     def ensemble_scores(scores):
         score_1, score_2 = extract_scores(scores[0]), extract_scores(scores[1])
         # Utility function to ensemble scores
         # If they disagree, return 0
-        return (score_1 + -1 * score_2)/2
+        return (score_1 + -1 * score_2)/2, score_1 == score_2 and score_1 != 0
 
 
     def get_score2(row, eval_axes, dummy_eval=False):
@@ -340,34 +350,31 @@ def main():
             # Ensemble scores and return
             return [scoring_output_a, scoring_output_b]
         
-    # {"scored_axis_name": axis_name, "High": high description, "Low": low description, "Model A Score": "high", "Model B Score": "high"}
     results["parsed_axis_responses"] = results[['axis_response', 'axis_description']].apply(lambda x: parse_axis_responses(x['axis_response'], x['axis_description']), axis=1)
-
-    # results = results.set_index("question").join(df[['question', f'{args.model_a_column}_embedding', f'{args.model_b_column}_embedding']].set_index("question"), on='question', how='inner', rsuffix='_r')
 
     #turn the values in the parsed_axis_responses column into separate columns
     results = pd.concat([results.drop(['parsed_axis_responses'], axis=1), results['parsed_axis_responses'].apply(pd.Series)], axis=1)
-    results['score'] = results.apply(score_models, axis=1)
+    parent_axes_logging = results['parent_axis'].value_counts().reset_index()
     eval_axes = results['parent_axis'].value_counts()[:args.num_eval].index.tolist()
     print(f"\n\n{results['parent_axis'].value_counts()}\n{eval_axes}\n\n")
 
     # get score after parent axis generation
-    # results["final_score"] = results.apply(lambda x: get_score(x, eval_axes=eval_axes, dummy_eval=args.dummy_eval), axis=1)
     results['ensamble_scores'] = results.apply(lambda x: get_score2(x, eval_axes=eval_axes, dummy_eval=args.dummy_eval), axis=1)
-    # results.to_csv(f"pipeline_results/{save_str}/{tag}-embedding.csv", index=False)
     results = results.dropna(subset=["ensamble_scores"])
         
     results["one_sided_score_and_reasoning"] = results["ensamble_scores"].apply(lambda x: x[0])
     results["one_sided_score"] = results["one_sided_score_and_reasoning"].apply(extract_scores)
     results["final_score_and_reasoning"] = results["ensamble_scores"]
     results["final_score"] = results["ensamble_scores"].apply(ensemble_scores)
+    results["final_score"] = results["final_score"].apply(lambda x: x[0])
+    results["scores_disagree"] = results["final_score_and_reasoning"].apply(lambda x: x[0])
     results.ensamble_scores.value_counts()
     results.to_csv(f"pipeline_results/{save_str}/{tag}-results_oz.csv", index=False)
     for c in llm_outputs.columns:
         llm_outputs[c] = llm_outputs[c].astype(str)
 
-    summary_results = results.groupby('parent_axis').agg({'score': 'mean', 'final_score': 'mean', 'one_sided_score': 'mean', 'question': 'count'}).reset_index()
-    wandb.log({"results": wandb.Table(dataframe=results), "df_cluster": wandb.Table(dataframe=df_cluster), "llm_outputs": wandb.Table(dataframe=llm_outputs), "summary_results": wandb.Table(dataframe=summary_results)})
+    summary_results = results.groupby('parent_axis').agg({'final_score': 'mean', 'one_sided_score': 'mean', 'question': 'count'}).reset_index()
+    wandb.log({"results": wandb.Table(dataframe=results), "df_cluster": wandb.Table(dataframe=df_cluster), "llm_outputs": wandb.Table(dataframe=llm_outputs), "summary_results": wandb.Table(dataframe=summary_results), "all_parent_axes": wandb.Table(dataframe=parent_axes_logging)})
 
 # make main function
 if __name__ == "__main__":
