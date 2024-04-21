@@ -7,9 +7,11 @@ from typing import List
 import lmdb
 import openai
 from openai import OpenAI
+import datetime
+from wandb.sdk.data_types.trace_tree import Trace
 
-from serve.global_vars import LLM_CACHE_FILE, VICUNA_URL
-from serve.utils_general import get_from_cache, save_to_cache
+from serve.global_vars import LLM_CACHE_FILE, VICUNA_URL, LLM_EMBED_CACHE_FILE
+from serve.utils_general import get_from_cache, save_to_cache, save_emb_to_cache, get_emb_from_cache
 
 logging.basicConfig(level=logging.INFO)
 
@@ -17,24 +19,18 @@ if not os.path.exists(LLM_CACHE_FILE):
     os.makedirs(LLM_CACHE_FILE)
 
 llm_cache = lmdb.open(LLM_CACHE_FILE, map_size=int(1e11))
+llm_embed_cache = lmdb.open(LLM_EMBED_CACHE_FILE, map_size=int(1e11))
 openai.api_key = os.environ["OPENAI_API_KEY"]
 
 
-def get_llm_output(prompt: str, model: str, cache = True, system_prompt = None, history=[]) -> str:
-    print("HERE")
-    print("systems prompt ", system_prompt)
-    api_base = {
-        "gpt-3.5-turbo": "https://api.openai.com/v1",
-        "gpt-4": "https://api.openai.com/v1",
-        "vicuna": VICUNA_URL,
-        "gpt-3.5-turbo-0125": "https://api.openai.com/v1",
-        "gpt-4-0125-preview": "https://api.openai.com/v1",
-    }
-    openai.api_base = api_base[model]
+def get_llm_output(prompt: str, model: str, cache = True, system_prompt = None, history=[], trace_name="root_span") -> str:
+
+    openai.api_base = "https://api.openai.com/v1" if model != "vicuna" else VICUNA_URL
     client = OpenAI()
+    systems_prompt = "You are a helpful assistant." if not system_prompt else system_prompt
 
     if model in ["gpt-3.5-turbo", "gpt-4", "gpt-4-0125-preview"]:
-        messages = [{"role": "system", "content": "You are a helpful assistant." if not system_prompt else system_prompt}] + history + [
+        messages = [{"role": "system", "content": systems_prompt}] + history + [
             {"role": "user", "content": prompt},
         ]
     else:
@@ -45,31 +41,84 @@ def get_llm_output(prompt: str, model: str, cache = True, system_prompt = None, 
     if cached_value is not None:
         print("LLM Cache Hit")
         logging.debug(f"LLM Cache Hit")
+        # create a span in wandb
+        # create_and_log_trace(trace_name, model, system_prompt, prompt, cached_value, cached=True)
         return cached_value
+    else:
+        print("LLM Cache Miss")
+        logging.debug(f"LLM Cache Miss")
 
     for _ in range(3):
         try:
             if model in ["gpt-3.5-turbo", "gpt-4", "gpt-4-0125-preview"]:
+                start_time_ms = datetime.datetime.now().timestamp() * 1000
                 completion = client.chat.completions.create(
                     model=model,
                     messages=messages,
                 )
+                end_time_ms = round(datetime.datetime.now().timestamp() * 1000)  # logged in milliseconds
                 response = completion.choices[0].message.content.strip()
             elif model == "vicuna":
                 completion = client.chat.completions.create(
                     model="lmsys/vicuna-7b-v1.5",
                     prompt=prompt,
                     max_tokens=256,
-                    temperature=0,  # TODO: greedy may not be optimal
+                    temperature=0.7,  # TODO: greedy may not be optimal
                 )
                 response = completion.choices[0].message.content.strip()
             save_to_cache(key, response, llm_cache)
+
+            # create a span in wandb
+            # create_and_log_trace(trace_name, model, system_prompt, prompt, response, start_time_ms, end_time_ms, cached=False)
             return response
 
         except Exception as e:
             logging.error(f"LLM Error: {e}")
             continue
     return "LLM Error: Cannot get response."
+
+def create_and_log_trace(trace_name, model, system_prompt, query, response, start_time_ms=None, end_time_ms=None, cached=False):
+    if cached:
+        # For cached responses, start_time_ms and end_time_ms might not be applicable
+        start_time_ms = end_time_ms = datetime.datetime.now().timestamp() * 1000
+    trace = Trace(
+        name=trace_name,
+        kind="llm",
+        metadata={"model_name": model, "cached": cached},
+        start_time_ms=start_time_ms,
+        end_time_ms=end_time_ms,
+        inputs={"system_prompt": system_prompt, "query": query},
+        outputs={"response": response},
+    )
+    trace.log(name="openai_call")
+
+def get_llm_embedding(prompt: str, model: str) -> str:
+    openai.api_base = "https://api.openai.com/v1" if model != "vicuna" else VICUNA_URL
+    client = OpenAI()
+    key = json.dumps([model, prompt])
+
+    cached_value = get_emb_from_cache(key, llm_embed_cache)
+
+    if cached_value is not None:
+        print("LLM Cache Hit")
+        logging.debug(f"LLM Cache Hit")
+        return cached_value
+    else:
+        print("LLM Cache Miss")
+        logging.debug(f"LLM Cache Miss")
+
+    for _ in range(3):
+        try:
+            text = prompt.replace("\n", " ")
+            embedding = client.embeddings.create(input=[text], model=model).data[0].embedding
+            save_emb_to_cache(key, embedding, llm_embed_cache)
+            return embedding
+        except Exception as e:
+            logging.error(f"LLM Error: {e}")
+            continue
+
+    return "LLM Error: Cannot get response."
+
 
 
 def prompt_differences(captions1: List[str], captions2: List[str]) -> str:
