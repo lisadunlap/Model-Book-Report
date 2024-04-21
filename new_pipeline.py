@@ -276,6 +276,8 @@ def main():
             continue
     results['parent_axis'] = match_axis_to_subaxis(list(results['axis_description']), parent_axes, args.embedding_model)
     df_cluster['parent_axis'] = match_axis_to_subaxis(list(df_cluster['axis']), parent_axes, args.embedding_model)
+    wandb.summary["num_axes"] = len(all_axis_descriptions)
+    wandb.summary["num_parent_axes"] = len(parent_axes)
     df_cluster.to_csv(f"pipeline_results/{save_str}/{tag}-clustering.csv", index=False) 
     results.to_csv(f"pipeline_results/{save_str}/{tag}-results.csv", index=False)
     llm_outputs = pd.DataFrame(llm_logs).T
@@ -367,9 +369,11 @@ def main():
     results["final_score_and_reasoning"] = results["ensamble_scores"]
     results["final_score"] = results["ensamble_scores"].apply(ensemble_scores)
     results["final_score"] = results["final_score"].apply(lambda x: x[0])
-    results["scores_disagree"] = results["final_score_and_reasoning"].apply(lambda x: x[0])
+    results["scores_disagree"] = results["final_score_and_reasoning"].apply(lambda x: x[1])
+    wandb.summary["percentage_scores_disagree"] = results["scores_disagree"].sum() / results.shape[0]
+    wandb.summary["percentage_neutral"] = results[(results["final_score"] == 0 & results["scores_disagree"] == False)].shape[0] / results.shape[0]
     results.ensamble_scores.value_counts()
-    results.to_csv(f"pipeline_results/{save_str}/{tag}-results_oz.csv", index=False)
+    results.to_csv(f"pipeline_results/{save_str}/{tag}-results.csv", index=False)
     for c in llm_outputs.columns:
         llm_outputs[c] = llm_outputs[c].astype(str)
 
