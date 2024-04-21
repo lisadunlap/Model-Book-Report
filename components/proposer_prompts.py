@@ -36,6 +36,23 @@ DEFAULT_PROMPT = """
     Please output differences which have a possibility of showing up in future unseen data and which would be useful for a human to know about when deciding with LLM to use. Please describe the difference in each axis clearly and concisely, along with an explanation of what in the text proves this difference exists. Please order your response in terms of the most prominent differences between the two outputs. If the outputs are nearly identical, please write "No differences found."
 """
 
+
+# DEFAULT_PROMPT = """
+#     The following are the result of asking two different language models to generate an answer for the same questions:
+
+#     {text}
+
+#    I am a machine learning researcher trying to figure out the major qualitative differences between these two groups so I can correctly identify which model generated which response for unseen questions. This is a very small portion of the data, so I want the differences to be general.
+
+#     Please output a list differences between the two outputs with relation to specific axes of variation. Are there any general patterns, clusters, or variations you notice in the outputs? Try to give patterns that are specific enough that someone could reliably produce new examples that fit the rule, and that they could understand what it means to be higher or lower on that specific axis.
+
+#    The format of response should be a bulleted list of differences, one bullet for each axis. The format should be
+#    - {{axis_1}}: {{difference}}
+#    - {{axis_2}}: {{difference}}
+    
+#    Please output 
+# """
+
 AXIS_CONVERSION = """The following are the axes of variation that you can consider when comparing the two outputs along with a description of how two models (A and B) vary along that axis:
 
     {axes}

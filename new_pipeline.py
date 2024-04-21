@@ -40,7 +40,8 @@ def get_cluster_axes(cluster, batch = 50):
     ["{{axis name}}:  High: {{new axis high description}} Low: {{new axis low description}}", ...]"""]
     smaller_systems_prompt = "You are a helpful assistant. Your outputs adhere to the format given by the user."
 
-    cluster_batch = random.sample(cluster, min(batch, len(cluster)))
+    # cluster_batch = random.sample(cluster, min(batch, len(cluster)))
+    cluster_batch = cluster[:min(batch, len(cluster))]
 
     prompt_1 = cluster_axes_descriptions_prompt[0].format(axes="\n".join(cluster_batch))
     cluster_1_reduced_axes = get_llm_output(prompt_1, model="gpt-4", system_prompt=smaller_systems_prompt)
@@ -146,7 +147,7 @@ def main():
     parser.add_argument('--num-eval', default=3, type=int, help='model to use')
     parser.add_argument('--oz', action='store_true', help='use oz prompt')
     parser.add_argument('--dummy-eval', action='store_true', help='use dummy eval prompt')
-    parser.add_argument('--embedding-model', type=str, default='text-embedding-3-small', help='embedding model to use')
+    parser.add_argument('--embedding-model', type=str, default='all-MiniLM-L6-v2', help='embedding model to use')
     args = parser.parse_args()
 
     np.random.seed(0)
@@ -155,7 +156,7 @@ def main():
     # tirn off wandb logging
     if not args.wandb:
         os.environ["WANDB_MODE"] = "dryrun"
-    proj_name = "llm_eval_refactor" if not args.num_samples else f"llm_eval_refactor_debug"
+    proj_name = "llm_eval_presentable" if not args.dummy_eval else f"llm_eval_refactor_debug"
     wandb.init(project=proj_name, entity="lisadunlap", config=vars(args))
     df = pd.read_csv(args.data_path)
     # create str of datapath for savins
@@ -279,6 +280,7 @@ def main():
     ############  score axes  ############
     ######################################
     def score_models(row):
+        # convert model output to numberic score
         if 'low' in row["Model A Score"].lower() and 'high' in row["Model B Score"].lower():
             return -1
         elif 'high' in row["Model A Score"].lower() and 'low' in row["Model B Score"].lower():
@@ -290,32 +292,81 @@ def main():
         else:
             raise ValueError(f"No score found\n{row}")
         
+
+    def ensemble_scores(scores):
+        score_1, score_2 = extract_scores(scores[0]), extract_scores(scores[1])
+        # Utility function to ensemble scores
+        # If they disagree, return 0
+        return (score_1 + -1 * score_2)/2
+
+
+    def get_score2(row, eval_axes, dummy_eval=False):
+        if dummy_eval:
+            return ["Model A Score: high\nModel B Score: low\nReason: Because I said so.", "Model A Score: high\nModel B Score: low\nReason: Because I said so."]
+        else:
+            if row['parent_axis'] not in eval_axes:
+                return None
+
+            # Original prompt
+            prompt_a = f"Question:{row['question']}\nModel A: {row['answer_a']}\nModel B: {row['answer_b']}\n"
+            # Swapped prompt
+            prompt_b = f"Question:{row['question']}\nModel A: {row['answer_b']}\nModel B: {row['answer_a']}\n"
+
+            scoring = """I am trying to explain differences in the behavior of two LLM's (A and B) by comparing their outputs over a dataset of question answer tuples. I have of found axes of variation with the meanings of what it means to be low and high on this axis.
+
+            For the following question answer tuple, please score the two models on the following axis of variation found in the dataset. The axis of variation is as follows:
+            {axes}
+
+            Here is the question answer tuple:
+            {question}
+
+            Please score where the two models fall on the above axis. The score for a given model could be ("low", "high").This will help me understand the differences between the two models in a more structured way. Please return the score followed by an explanantion of your thought process in the format:
+            Model A Score: {{high/low}}
+            Model B Score: {{high/low}}
+            Reason: {{reasoning}}
+
+            """
+
+            # Generate scoring prompts for both orderings
+            scoring_prompt_a = scoring.format(axes=row["parent_axis"], question=prompt_a)
+            scoring_prompt_b = scoring.format(axes=row["parent_axis"], question=prompt_b)
+
+            # Get LLM outputs for both prompts
+            scoring_output_a = get_llm_output(scoring_prompt_a, model="gpt-3.5-turbo", system_prompt=smaller_systems_prompt)
+            scoring_output_b = get_llm_output(scoring_prompt_b, model="gpt-3.5-turbo", system_prompt=smaller_systems_prompt)
+            print(scoring_output_a)
+            print(scoring_output_b)
+
+            # Ensemble scores and return
+            return [scoring_output_a, scoring_output_b]
+        
     # {"scored_axis_name": axis_name, "High": high description, "Low": low description, "Model A Score": "high", "Model B Score": "high"}
     results["parsed_axis_responses"] = results[['axis_response', 'axis_description']].apply(lambda x: parse_axis_responses(x['axis_response'], x['axis_description']), axis=1)
-    print(results.columns, df.columns)
-    print(results['question'].iloc[0], df['question'].iloc[0])
-    results = results.set_index("question").join(df[['question', f'{args.model_a_column}_embedding', f'{args.model_b_column}_embedding']].set_index("question"), on='question', how='inner', rsuffix='_r')
-    print(len(results), len(results))
+
+    # results = results.set_index("question").join(df[['question', f'{args.model_a_column}_embedding', f'{args.model_b_column}_embedding']].set_index("question"), on='question', how='inner', rsuffix='_r')
+
     #turn the values in the parsed_axis_responses column into separate columns
     results = pd.concat([results.drop(['parsed_axis_responses'], axis=1), results['parsed_axis_responses'].apply(pd.Series)], axis=1)
     results['score'] = results.apply(score_models, axis=1)
     eval_axes = results['parent_axis'].value_counts()[:args.num_eval].index.tolist()
     print(f"\n\n{results['parent_axis'].value_counts()}\n{eval_axes}\n\n")
 
-    # results['embedding_eval'] = results.apply(lambda x: get_embedding_score(x['parent_low'], x['parent_high'], x[f"{args.model_a_column}_embedding"], x[f"{args.model_b_column}_embedding"]), axis=1)
-
     # get score after parent axis generation
-    results["final_score"] = results.apply(lambda x: get_score(x, eval_axes=eval_axes, dummy_eval=args.dummy_eval), axis=1)
+    # results["final_score"] = results.apply(lambda x: get_score(x, eval_axes=eval_axes, dummy_eval=args.dummy_eval), axis=1)
+    results['ensamble_scores'] = results.apply(lambda x: get_score2(x, eval_axes=eval_axes, dummy_eval=args.dummy_eval), axis=1)
     # results.to_csv(f"pipeline_results/{save_str}/{tag}-embedding.csv", index=False)
-    results = results.dropna(subset=["final_score"])
+    results = results.dropna(subset=["ensamble_scores"])
         
-    results["final_score_and_reasoning"] = results["final_score"]
-    results["final_score"] = results["final_score"].apply(extract_scores)
+    results["one_sided_score_and_reasoning"] = results["ensamble_scores"].apply(lambda x: x[0])
+    results["one_sided_score"] = results["one_sided_score_and_reasoning"].apply(extract_scores)
+    results["final_score_and_reasoning"] = results["ensamble_scores"]
+    results["final_score"] = results["ensamble_scores"].apply(ensemble_scores)
+    results.ensamble_scores.value_counts()
     results.to_csv(f"pipeline_results/{save_str}/{tag}-results_oz.csv", index=False)
     for c in llm_outputs.columns:
         llm_outputs[c] = llm_outputs[c].astype(str)
 
-    summary_results = results.groupby('parent_axis').agg({'score': 'mean', 'final_score': 'mean'}).reset_index()
+    summary_results = results.groupby('parent_axis').agg({'score': 'mean', 'final_score': 'mean', 'one_sided_score': 'mean', 'question': 'count'}).reset_index()
     wandb.log({"results": wandb.Table(dataframe=results), "df_cluster": wandb.Table(dataframe=df_cluster), "llm_outputs": wandb.Table(dataframe=llm_outputs), "summary_results": wandb.Table(dataframe=summary_results)})
 
 # make main function

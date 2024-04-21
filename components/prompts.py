@@ -35,7 +35,7 @@ LLM_ONLY_PROMPT_DUAL2 = """
 
     {text}
 
-    I am a machine learning researcher trying to figure out the major differences between these two groups so I can better understand my data.
+    I am a machine learning researcher trying to figure out the major differences between these two groups so I can better compare the behavior of these models in a qualitative way.
 
     Please output a list dictionary of distinct concepts or styles that appear more in the outputs of Model A compared to Model B and vice versa. An example of the desired output format:
 
@@ -51,7 +51,7 @@ LLM_ONLY_PROMPT_OZ = """
 
     {text}
 
-    I am a machine learning researcher trying to figure out the major differences between these two LLM outputs so I can better compare the behavior of these models.
+    I am a machine learning researcher trying to figure out the major differences between these two LLM outputs so I can better compare the behavior of these models in a qualitative way.
 
     Please output a list dictionary of distinct concepts or styles that appear more in the outputs of Model A compared to Model B and vice versa. An example of the desired output format:
 
