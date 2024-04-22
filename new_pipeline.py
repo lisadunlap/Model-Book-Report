@@ -21,6 +21,9 @@ from sklearn.metrics.pairwise import cosine_similarity
 from components.proposer_prompts import *
 from components.parsing_utils import *
 
+np.random.seed(42)
+random.seed(42)
+
 systems_prompt = "Given a dataset of text outputs from two different large language models (LLMs), your task is to analyze and summarize the data based on specific characteristics. The goal is to identify and cluster similar behaviors or traits within the outputs, summarizing these into a concise list of commonly observed behaviors for each model. This analysis will help in understanding the general behaviors of these models for auditing, error discovery, and comparison purposes. Your outputs adhere to the format given by the user."
 smaller_systems_prompt = "You are a helpful assistant. Your outputs adhere to the format given by the user."
 
@@ -39,12 +42,12 @@ def get_cluster_axes(cluster, batch = 50):
 
     ["{{axis name}}:  High: {{new axis high description}} Low: {{new axis low description}}", ...]"""]
     smaller_systems_prompt = "You are a helpful assistant. Your outputs adhere to the format given by the user."
-
-    # cluster_batch = random.sample(cluster, min(batch, len(cluster)))
-    cluster_batch = cluster[:min(batch, len(cluster))]
+    cluster_batch = random.sample(cluster, min(batch, len(cluster)))
+    cluster_batch = sorted(cluster_batch)
 
     prompt_1 = cluster_axes_descriptions_prompt[0].format(axes="\n".join(cluster_batch))
     cluster_1_reduced_axes = get_llm_output(prompt_1, model="gpt-4", system_prompt=smaller_systems_prompt)
+    cluster_1_reduced_axes = cluster_1_reduced_axes.replace("*", "")
 
     history = [{"role": "user", "content": prompt_1}, {"role": "assistant", "content": cluster_1_reduced_axes}]
     prompt_2 = cluster_axes_descriptions_prompt[1].format(axes="\n".join(cluster_batch))
@@ -157,8 +160,8 @@ def main():
     parser.add_argument('--embedding-model', type=str, default='all-MiniLM-L6-v2', help='embedding model to use')
     args = parser.parse_args()
 
-    np.random.seed(0)
-    random.seed(0)
+    np.random.seed(42)
+    random.seed(42)
 
     # tirn off wandb logging
     if not args.wandb:
@@ -228,6 +231,7 @@ def main():
     #### cluster per question axes    ####
     ######################################
     all_axis_descriptions = list(set(results['axis_description']))
+    all_axis_descriptions = [x.replace("*", "") for x in all_axis_descriptions]
     # all_axis_descriptions = [desc.split(": ", 1)[1] for desc in all_axis_descriptions]
     # Load a pre-trained sentence transformer model
     if args.embedding_model == 'all-MiniLM-L6-v2':
@@ -248,7 +252,7 @@ def main():
 
     all_cluster_axes, all_df_cluster, llm_logs = [], [], {}
     for cluster, axes in grouped_axes.items():
-        prompt_1, parent_axes = get_cluster_axes(axes)
+        prompt_1, parent_axes = get_cluster_axes(sorted(axes))
         llm_logs[cluster] = {"prompt_1": prompt_1, "output_1": parent_axes}
         df_cluster = {"axis": [], "cluster": []}
         for axis in parent_axes:
@@ -368,10 +372,10 @@ def main():
     results["one_sided_score"] = results["one_sided_score_and_reasoning"].apply(extract_scores)
     results["final_score_and_reasoning"] = results["ensamble_scores"]
     results["final_score"] = results["ensamble_scores"].apply(ensemble_scores)
+    results["scores_disagree"] = results["final_score"].apply(lambda x: x[1])
     results["final_score"] = results["final_score"].apply(lambda x: x[0])
-    results["scores_disagree"] = results["final_score_and_reasoning"].apply(lambda x: x[1])
     wandb.summary["percentage_scores_disagree"] = results["scores_disagree"].sum() / results.shape[0]
-    wandb.summary["percentage_neutral"] = results[(results["final_score"] == 0 & results["scores_disagree"] == False)].shape[0] / results.shape[0]
+    wandb.summary["percentage_neutral"] = results[((results["final_score"] == 0) & (results["scores_disagree"] == False))].shape[0] / results.shape[0]
     results.ensamble_scores.value_counts()
     results.to_csv(f"pipeline_results/{save_str}/{tag}-results.csv", index=False)
     for c in llm_outputs.columns:
