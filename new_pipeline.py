@@ -21,9 +21,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 from components.proposer_prompts import *
 from components.parsing_utils import *
 
-np.random.seed(42)
-random.seed(42)
-
 systems_prompt = "Given a dataset of text outputs from two different large language models (LLMs), your task is to analyze and summarize the data based on specific characteristics. The goal is to identify and cluster similar behaviors or traits within the outputs, summarizing these into a concise list of commonly observed behaviors for each model. This analysis will help in understanding the general behaviors of these models for auditing, error discovery, and comparison purposes. Your outputs adhere to the format given by the user."
 smaller_systems_prompt = "You are a helpful assistant. Your outputs adhere to the format given by the user."
 
@@ -97,7 +94,7 @@ def cluster_hierarchical(embeddings, n_clusters=5):
     return clustering.labels_
 
 def cluster_kmeans(embeddings, n_clusters=5):
-    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+    kmeans = KMeans(n_clusters=n_clusters, random_state=args.seed)
     kmeans.fit(embeddings)
     return kmeans.labels_
 
@@ -158,10 +155,11 @@ def main():
     parser.add_argument('--oz', action='store_true', help='use oz prompt')
     parser.add_argument('--dummy-eval', action='store_true', help='use dummy eval prompt')
     parser.add_argument('--embedding-model', type=str, default='all-MiniLM-L6-v2', help='embedding model to use')
+    parser.add_argument('-seed', default=42, type=int, help='random seed')
     args = parser.parse_args()
 
-    np.random.seed(42)
-    random.seed(42)
+    np.random.seed(args.seed)
+    random.seed(args.seed)
 
     # tirn off wandb logging
     if not args.wandb:
@@ -187,7 +185,7 @@ def main():
         print(f"Filtered out {old_len - df.shape[0]} rows")
         # remove any entired where the model outputs are the same
         df = df[df[args.model_a_column] != df[args.model_b_column]]
-        df = df.sample(args.num_samples, random_state=42)
+        df = df.sample(args.num_samples, random_state=args.seed)
         # df[f"{args.model_a_column}_embedding"] = df[["question", args.model_a_column]].apply(lambda x: get_llm_embedding(f"User:{x['question']}\Assistant:{x[args.model_a_column]}", args.embedding_model), axis=1)
         # df[f"{args.model_b_column}_embedding"] = df[["question", args.model_b_column]].apply(lambda x: get_llm_embedding(f"User:{x['question']}\Assistant:{x[args.model_b_column]}", args.embedding_model), axis=1)
 
