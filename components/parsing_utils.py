@@ -77,35 +77,6 @@ def parse_axis_responses(axis_response, axis_name):
                     "Model A Score": "high",
                     "Model B Score": "high"
                 }
-        
-def extract_scores(text):
-    # Create a dictionary to hold the results
-    results = {}
-    
-    # Regex patterns to match the scores and reasoning
-    score_pattern = re.compile(r'Model (A|B) Score: (high|low)', re.IGNORECASE)
-    reasoning_pattern = re.compile(r'Reason:\s*({{reasoning}})', re.IGNORECASE)
-
-    # Find all matches for model scores
-    scores = score_pattern.findall(text)
-    for model, score in scores:
-        if model.upper() == 'A':
-            results["Model A Score"] = score.lower()
-        elif model.upper() == 'B':
-            results["Model B Score"] = score.lower()
-    try:
-        if 'high' in results["Model A Score"].lower() and 'low' in results["Model B Score"].lower():
-            return 1
-        elif 'low' in results["Model A Score"].lower() and 'high' in results["Model B Score"].lower():
-            return -1
-        elif "low" in results["Model A Score"].lower() and "low" in results["Model B Score"].lower():
-            return 0
-        elif "high" in results["Model A Score"].lower() and "high" in results["Model B Score"].lower():
-            return 0
-        else:
-            raise ValueError(f"No score found\n{text}")
-    except:
-        print(f"No score found\n{text}")
 
 
 
