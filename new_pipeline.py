@@ -30,7 +30,7 @@ def get_cluster_axes(cluster, batch = 50):
     Here are the axes of varaiation (note each axis is formatted {{axis name}}: High: {{high description}} Low: {{low description}}):
     {axes}
 
-    Again I want to cluster these axes into a minimal set (<=5) of parent axes that cover the entire axis list. Please ensure these parent axes' descriptions of what makes an item high or low on that axis align with the high and low descriptions of the axes they cover. Your new set of axes should be distinct so each of the above axes fit under exactly one of your new axes. Please ensure each axis and parent axis contains an axis name and descriptions of what it means to score high or low on that axis in the same format as the provided axes.  Please ensure the descriptions of what is considered high and low on each axis is clear, concise, under 10 words. Please focus on patterns that are important for understanding the behavior of a language model, as these will later be used to help debug an important system""", 
+    Again I want to cluster these axes into a minimal set (<=3) of parent axes that cover the entire axis list. Please ensure these parent axes' descriptions of what makes an item high or low on that axis align with the high and low descriptions of the axes they cover. Your new set of axes should be distinct so each of the above axes fit under exactly one of your new axes. Please ensure each axis and parent axis contains an axis name and descriptions of what it means to score high or low on that axis in the same format as the provided axes.  Please ensure the descriptions of what is considered high and low on each axis is clear, concise, under 10 words. Please focus on patterns that are important for understanding the behavior of a language model, as these will later be used to help debug an important system""", 
                                      
     """thanks! Now can you please convert this into a list that I can parse in python? Here are the original axes again for reference:
     {axes}
@@ -97,30 +97,6 @@ def cluster_kmeans(embeddings, n_clusters=5):
     kmeans = KMeans(n_clusters=n_clusters, random_state=args.seed)
     kmeans.fit(embeddings)
     return kmeans.labels_
-
-def get_score(row, eval_axes, dummy_eval=False):
-    if dummy_eval:
-        return "Model A Score: high\nModel B Score: low\nReason: Because I said so."
-    else:
-        scoring = """I am trying to explain differences in the behavior of two LLM's (A and B) by comparing their outputs over a dataset of question answer tuples. I have of found axes of variation with the meanings of what it means to be low and high on this axis.
-
-        For the following question answer tuple, please score the two models on the following axis of variation found in the dataset. The axis of variation is as follows:
-        {axes}
-
-        Here is the question answer tuple:
-        {question}
-
-        Please score where the two models fall on the above axis. The score for a given model could be ("low", "high").This will help me understand the differences between the two models in a more structured way. Please return the score followed by an explanantion of your thought process in the format:
-        Model A Score: {{high/low}}
-        Model B Score: {{high/low}}
-        Reason: {{reasoning}}
-
-        """
-        if row['parent_axis'] not in eval_axes:
-            return None
-        scoring_prompt = scoring.format(axes=row["parent_axis"], question=row["prompt"])
-        scoring_output = get_llm_output(scoring_prompt, model="gpt-3.5-turbo")
-        return scoring_output
     
 def get_embedding_score(axis_low, axis_high, embeddings_a, embeddings_b):
     # compute similarity between the embeddings of the low and high descriptions of the axis
@@ -170,6 +146,8 @@ def main():
 
     if args.group_column:
         groups = global_df[args.group_column].unique()
+        print(f"Running VibeCheck on group {args.group_column}({groups})")
+        print(f"Group value counts: {global_df[args.group_column].value_counts()}")
     else:
         groups = ["all"]
     for group in groups:
@@ -178,18 +156,19 @@ def main():
         else:
             df = global_df
         model_group = f"{args.model_a_column}_{args.model_b_column}"
-        wandb.init(project=proj_name, entity="lisadunlap", config=vars(args), group=model_group, name=group)
+        wandb.init(project=proj_name, entity="lisadunlap", config=vars(args), group=model_group, name=f"{args.group_column}-{group}")
 
         # create str of datapath for savins
+        num_samples = min(args.num_samples, df.shape[0]) if args.num_samples else df.shape[0]
         save_str = args.data_path.split("/")[-1].split(".")[0] + f"_{group}"
-        tag = f"{args.model_a_column}_{args.model_b_column}_{args.k}" if not args.num_samples else f"{args.model_a_column}_{args.model_b_column}_{args.k}_{args.num_samples}"
+        tag = f"{args.model_a_column}_{args.model_b_column}_{args.k}" if not args.num_samples else f"{args.model_a_column}_{args.model_b_column}_{args.k}_{num_samples}"
         tag = f"{tag}_oz" if args.oz else tag
         tag = f"{tag}_dummy_eval" if args.dummy_eval else tag
         if not os.path.exists(f"pipeline_results/{save_str}"):
             os.makedirs(f"pipeline_results/{save_str}")
 
         # randomly sample 10 rows, set random seed for reproducibility
-        if args.num_samples:
+        if num_samples:
             # df.drop_duplicates(subset=[args.model_a_column, args.model_b_column], inplace=True)
             old_len = df.shape[0]
             # filter out rows where the model outputs are similar
@@ -198,9 +177,7 @@ def main():
             print(f"Filtered out {old_len - df.shape[0]} rows")
             # remove any entired where the model outputs are the same
             df = df[df[args.model_a_column] != df[args.model_b_column]]
-            df = df.sample(args.num_samples, random_state=args.seed)
-            # df[f"{args.model_a_column}_embedding"] = df[["question", args.model_a_column]].apply(lambda x: get_llm_embedding(f"User:{x['question']}\Assistant:{x[args.model_a_column]}", args.embedding_model), axis=1)
-            # df[f"{args.model_b_column}_embedding"] = df[["question", args.model_b_column]].apply(lambda x: get_llm_embedding(f"User:{x['question']}\Assistant:{x[args.model_b_column]}", args.embedding_model), axis=1)
+            df = df.sample(num_samples, random_state=args.seed)
 
         model_columns = [args.model_a_column, args.model_b_column]
         oz_axes = ["Tone", "Format", "Level of Detail", "Ability to answer", "Safety", "Approach", "Creativity", "Fluency and grammatical correctness", "Adherence to prompt"]
@@ -306,34 +283,60 @@ def main():
         ############  score axes  ############
         ######################################
         def extract_scores(text):
-            text = text.replace("*", "")
-            # Create a dictionary to hold the results
-            results = {}
-            
-            # Regex patterns to match the scores and reasoning
-            score_pattern = re.compile(r'Model (A|B) Score: (high|low)', re.IGNORECASE)
-            reasoning_pattern = re.compile(r'Reason:\s*({{reasoning}})', re.IGNORECASE)
+            def extract_helper(text):
+                text = text.replace("*", "")
+                # Create a dictionary to hold the results
+                results = {}
+                
+                # Regex patterns to match the scores and reasoning
+                score_pattern = re.compile(r'Model (A|B) Score: (high|low)', re.IGNORECASE)
+                reasoning_pattern = re.compile(r'Reason:\s*({{reasoning}})', re.IGNORECASE)
 
-            # Find all matches for model scores
-            scores = score_pattern.findall(text)
-            for model, score in scores:
-                if model.upper() == 'A':
-                    results["Model A Score"] = score.lower()
-                elif model.upper() == 'B':
-                    results["Model B Score"] = score.lower()
-            try:
-                if 'high' in results["Model A Score"].lower() and 'low' in results["Model B Score"].lower():
-                    return 1
-                elif 'low' in results["Model A Score"].lower() and 'high' in results["Model B Score"].lower():
-                    return -1
-                elif "low" in results["Model A Score"].lower() and "low" in results["Model B Score"].lower():
-                    return 0
-                elif "high" in results["Model A Score"].lower() and "high" in results["Model B Score"].lower():
-                    return 0
-                else:
+                # Find all matches for model scores
+                scores = score_pattern.findall(text)
+                for model, score in scores:
+                    if model.upper() == 'A':
+                        results["Model A Score"] = score.lower()
+                    elif model.upper() == 'B':
+                        results["Model B Score"] = score.lower()
+                try:
+                    if 'high' in results["Model A Score"].lower() and 'low' in results["Model B Score"].lower():
+                        return 1
+                    elif 'low' in results["Model A Score"].lower() and 'high' in results["Model B Score"].lower():
+                        return -1
+                    elif "low" in results["Model A Score"].lower() and "low" in results["Model B Score"].lower():
+                        return 0
+                    elif "high" in results["Model A Score"].lower() and "high" in results["Model B Score"].lower():
+                        return 0
+                    elif "medium" in results["Model A Score"].lower() and "medium" in results["Model B Score"].lower():
+                        return 0
+                    elif "medium" in results["Model A Score"].lower() and "low" in results["Model B Score"].lower():
+                        return 1
+                    elif "medium" in results["Model A Score"].lower() and "high" in results["Model B Score"].lower():
+                        return -1
+                    else:
+                        raise ValueError(f"No score found\n{text}")
+                except:
+                    # print(f"No score found\n{text}")     
                     raise ValueError(f"No score found\n{text}")
+            try:
+                return extract_helper(text)
             except:
-                print(f"No score found\n{text}")        
+                print(f"Error extracting scores from text: {text}")
+                print("fixing....")
+                prompt = """I am trying to parse this string but am getting an error. Here is my expected format:
+
+                Reason: {{reasoning}}
+                Model A Score: {{high/medium/low}} # this should only be the word high, medium, or low
+                Model B Score: {{high/medium/low}} # this should only be the word high, medium, or low
+
+                And here is my string:
+                {output}
+
+                Please reformat the string in the above format for me to parse."""
+                text = get_llm_output(prompt.format(text), model="gpt-3.5-turbo", system_prompt=smaller_systems_prompt)
+                print(f"fixed?\n{text}\n")
+                return extract_helper(text)
 
         def ensemble_scores(scores):
             score_1, score_2 = extract_scores(scores[0]), extract_scores(scores[1])
@@ -409,6 +412,7 @@ def main():
 
         summary_results = results.groupby('parent_axis').agg({'final_score': 'mean', 'one_sided_score': 'mean', 'question': 'count'}).reset_index()
         wandb.log({"results": wandb.Table(dataframe=results), "df_cluster": wandb.Table(dataframe=df_cluster), "llm_outputs": wandb.Table(dataframe=llm_outputs), "summary_results": wandb.Table(dataframe=summary_results), "all_parent_axes": wandb.Table(dataframe=parent_axes_logging)})
+        wandb.finish()
 
 # make main function
 if __name__ == "__main__":
