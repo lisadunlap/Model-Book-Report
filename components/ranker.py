@@ -50,24 +50,6 @@ class Ranker:
             scored_hypotheses, key=lambda x: x["auroc"], reverse=True
         )
         return scored_hypotheses
-
-    # def compute_metrics(
-    #     self, scores1: List[float], scores2: List[float], hypothesis: str
-    # ) -> dict:
-    #     metrics = {}
-    #     metrics["hypothesis"] = hypothesis
-    #     metrics["score1"] = np.mean(scores1)
-    #     metrics["score2"] = np.mean(scores2)
-    #     metrics["diff"] = metrics["score1"] - metrics["score2"]
-    #     metrics["t_stat"], metrics["p_value"] = t_test(scores1, scores2)
-    #     metrics["auroc"] = compute_auroc(scores1, scores2)
-    #     metrics["correct_delta"] = classify(
-    #         scores1, scores2, threshold=self.args["classify_threshold"]
-    #     )
-    #     metrics["distribution"] = wandb.Image(
-    #         plot_distributions(scores1, scores2, hypothesis=hypothesis)
-    #     )
-    #     return metrics
     
 class NullRanker(Ranker):
     def __init__(self, args: Dict):
@@ -76,9 +58,13 @@ class NullRanker(Ranker):
     def score_hypothesis(self, hypothesis: str, dataset: List[dict]) -> List[float]:
         return [0.0] * len(dataset)
 
+# LLMDifferenceRanker(Ranker):
+
+
 class LLMOnlyRanker(Ranker):
     def __init__(self, args: Dict):
         super().__init__(args)
+        random.seed(args.seed)
 
     @staticmethod
     def extract_scores(text):
@@ -170,7 +156,6 @@ class LLMOnlyRanker(Ranker):
             Reasoning: {{reasoning}}
             Model A Score: {{high/low}}
             Model B Score: {{high/low}}
-
             """
 
             # Generate scoring prompts for both orderings
@@ -218,6 +203,7 @@ class LLMOnlyRanker(Ranker):
 class RubricRanker(Ranker):
     def __init__(self, args: Dict):
         super().__init__(args)
+        random.seed(args.seed)
 
     @staticmethod
     def generate_rubric(axis):
@@ -227,7 +213,13 @@ class RubricRanker(Ranker):
         Here is my axis name along with what it means to be high or low on this axis:
         {axis}
 
-        Please be clear and specific for your definitions of what makes a prompt-output pair a score of -2, -1, 0, etc. To assist understanding, please provide a examples of what a -2, -1, 0, 1, 2 would look like on the same prompt. Please ensure this rubric is easy to understand by people and would result in the same scores across multiple human graders."""
+        Please be clear and specific for your definitions of what makes a prompt-output pair a score of -2, -1, 0, etc. To assist understanding, please provide a examples of what a -2, -1, 0, 1, 2 would look like on the same prompt. Please ensure this rubric is easy to understand by people and would result in the same scores across multiple human graders.
+        
+        Please provide your thought process when creating the rubric before providing the rubric. Please structure your response in the following format:
+        
+        Score {{-2, -1, 0, 1, 2}}: {{description}}
+        Definition: {{definition}}
+        Example: {{example}}"""
 
         prompt = prompt.format(axis=axis)
 

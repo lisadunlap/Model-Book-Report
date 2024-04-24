@@ -165,6 +165,10 @@ Please return the simplified list of axes with any redundant axes removed and th
 
 class AxisReducer(Reducer):
 
+    def __init__(self, args):
+        super().__init__(args)
+        random.seed(args.seed)
+
     @staticmethod
     def reduce_texts(texts, 
                      embedding_model="text-embedding-3-small", 
