@@ -57,15 +57,39 @@ class Proposer:
         # elif self.args["proposer"]["sampling_method"] == 'classifier':
         #     model = torch.load("classifier.pt")
         #     return classifier_sampler(dataset, model, n)
+
+class LLMProposer(Proposer):
+    def __init__(self, args: Dict):
+        super().__init__(args)
+        # self.prompt = getattr(prompts, args["prompt"])
+
+    def get_hypotheses(
+        self, sampled_dataset1: List[Dict], sampled_dataset2: List[Dict]
+    ) -> Tuple[List[str], Dict]:
+        self.captioning(sampled_dataset1)
+        self.captioning(sampled_dataset2)
+        captions1 = [
+            f"Group A: {item['answer']}".replace("\n", " ").strip()
+            for item in sampled_dataset1
+        ]
+        captions2 = [
+            f"Group B: {item['answer']}".replace("\n", " ").strip()
+            for item in sampled_dataset2
+        ]
+        caption_concat = "\n".join(captions1 + captions2)
+        prompt = self.prompt.format(text=caption_concat)
+        output = get_llm_output(prompt, self.args["model"])
+        hypotheses = [line.replace("* ", "") for line in output.splitlines()]
+        logs = {"prompt": prompt, "output": output}
+        return hypotheses, logs
     
 class LLMPairwiseProposerWithQuestion(Proposer):
     def __init__(self, args: Dict):
         super().__init__(args)
-        self.model_a = self.args["model_a"]
-        self.model_b = self.args["model_b"]
         self.systems_prompt = "Given a dataset of text outputs from two different large language models (LLMs), your task is to analyze and summarize the data based on specific characteristics. The goal is to identify and cluster similar behaviors or traits within the outputs, summarizing these into a concise list of commonly observed behaviors for each model. This analysis will help in understanding the general behaviors of these models for auditing, error discovery, and comparison purposes. Your outputs adhere to the format given by the user."
         self.smaller_systems_prompt = "You are a helpful assistant. Your outputs adhere to the format given by the user."
         self.model_columns = [args.model_a_column, args.model_b_column]
+        self.model_a, self.model_b = args.model_a_column, args.model_a_column
 
     def propose(
         self, df
@@ -74,14 +98,14 @@ class LLMPairwiseProposerWithQuestion(Proposer):
         Given two datasets, return a list of hypotheses
         """
         assert "question" in df.columns, "'question' column not in dataset"
-        random.seed(self.args["seed"])
+        random.seed(self.args.seed)
         oz_axes = ["Tone", "Format", "Level of Detail", "Ability to answer", "Safety", "Approach", "Creativity", "Fluency and crammatical correctness", "Adherence to prompt"]
 
         # get per question differences
         results = {"question":[], "answer_a":[], "answer_b":[], "prompt": [], "response": [], "axes": [], "axis_response": []}
         
         for i, row in tqdm(df.iterrows(), total=df.shape[0]):
-            texts = f"{row['question']}\nModel A: {row[self.model_columns[0]]}\nModel B: {row[self.model_columns[1]]}\n"
+            texts = f"{row['question']}\nModel A:\n{row[self.model_columns[0]]}\n\nModel B:\n{row[self.model_columns[1]]}\n"
             if self.args.oz:
                 prompt = OZ_PROMPT.format(text=texts, axes="\n".join([f"* {axis}" for axis in oz_axes]))
             else:
@@ -109,13 +133,7 @@ class LLMPairwiseProposerWithQuestion(Proposer):
         results = results.explode('axis_description')
 
         all_axis_descriptions = list(set(results['axis_description']))
-        return all_axis_descriptions, llm_logs, pairwise_differences
-    
-    def reduce_hypotheses(self, hypotheses):
-        """
-        Given a list of hypotheses, reduce them to a smaller set of hypotheses
-        """
-        return hypotheses
+        return all_axis_descriptions, llm_logs, pairwise_differences, results
 
 def test_proposers():
     dataset = pd.read_csv("data/diffusion_plates.csv")

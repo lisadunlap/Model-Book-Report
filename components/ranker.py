@@ -8,103 +8,14 @@ from matplotlib import pyplot as plt
 from scipy.stats import ttest_ind
 from sklearn.metrics import roc_auc_score
 from tqdm import tqdm, trange
+import re
 
 import wandb
 from serve.utils_clip import get_embeddings
 from serve.utils_llm import get_llm_output
 from serve.utils_vlm import get_vlm_output
 
-
-def plot_distributions(similarity_A_C, similarity_B_C, hypothesis=""):
-    """
-    Plots the distributions of cos sim to hypothesis for each group.
-    """
-    # Convert arrays to 1D if they're 2D
-    similarity_A_C = np.array(similarity_A_C).ravel()
-    similarity_B_C = np.array(similarity_B_C).ravel()
-
-    # Create a combined list of all scores and a list of labels to indicate group membership
-    all_scores = list(similarity_A_C) + list(similarity_B_C)
-    labels = ["Group A"] * len(similarity_A_C) + ["Group B"] * len(similarity_B_C)
-
-    # Create a DataFrame for seaborn plotting
-    df = pd.DataFrame({"Group": labels, "Similarity to C": all_scores})
-
-    # Set up the figure with 3 subplots
-    fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(20, 5))
-
-    # Histogram
-    ax[0].hist(similarity_A_C, bins=30, alpha=0.5, label="Group A", density=True)
-    ax[0].hist(similarity_B_C, bins=30, alpha=0.5, label="Group B", density=True)
-    ax[0].set_title(f"Histogram of Cosine Similarities to \n{hypothesis}")
-    ax[0].set_ylabel("Density")
-    ax[0].legend()
-
-    # KDE plot
-    sns.kdeplot(similarity_A_C, fill=True, ax=ax[1], label="Group A", warn_singular=False)
-    sns.kdeplot(similarity_B_C, fill=True, ax=ax[1], label="Group B", warn_singular=False)
-    ax[1].set_title(
-        f"Kernel Density Estimation of Cosine Similarities to \n{hypothesis}"
-    )
-    ax[1].set_ylabel("Density")
-
-    # Boxplot
-    sns.boxplot(x="Group", y="Similarity to C", data=df, ax=ax[2])
-    ax[2].set_title(f"Boxplot of Cosine Similarities to \n{hypothesis}")
-
-    # Adjust layout
-    plt.tight_layout()
-    return fig
-
-
-def classify(similarity_A_C, similarity_B_C, threshold=0.3):
-    """
-    Given two arrays of cos sim scores, classify each item of each group as containing concept C or not.
-    Return P(hyp in A) - P(hyp in B)
-    """
-    similarity_A_C = np.array(similarity_A_C)
-    similarity_B_C = np.array(similarity_B_C)
-    # print(
-    #     f"avg(cos sim A, cos sim B) = {[np.mean(similarity_A_C), np.mean(similarity_B_C)]} \t Max(cos sim A, cos sim B) = {[np.max(similarity_A_C), np.max(similarity_B_C)]}"
-    # )
-    percent_correct_a = sum(similarity_A_C > threshold) / len(similarity_A_C)
-    percent_correct_b = sum(similarity_B_C > threshold) / len(similarity_B_C)
-    # print(f"Percent correct A, B {[percent_correct_a, percent_correct_b]}")
-    return percent_correct_a - percent_correct_b
-
-
-def compute_auroc(similarity_A_C, similarity_B_C):
-    similarity_A_C = np.array(similarity_A_C)
-    similarity_B_C = np.array(similarity_B_C)
-
-    # Create labels based on the sizes of the input arrays
-    labels_A = [1] * similarity_A_C.shape[0]
-    labels_B = [0] * similarity_B_C.shape[0]
-
-    # Concatenate scores and labels using numpy's concatenate
-    all_scores = np.concatenate([similarity_A_C, similarity_B_C], axis=0).ravel()
-    all_labels = labels_A + labels_B
-
-    # Compute AUROC
-    auroc = roc_auc_score(all_labels, all_scores)
-    return auroc
-
-
-def t_test(d_A, d_B):
-    d_A = np.array(d_A)
-    d_B = np.array(d_B)
-
-    # Assuming you've already defined your similarity scores d_A and d_B
-    t_stat, p_value = ttest_ind(d_A, d_B, equal_var=False)
-
-    # Decision
-    alpha = 0.05
-    if p_value < alpha:
-        # print("** Reject the null hypothesis - there's a significant difference between the groups. **")
-        return True, p_value
-    else:
-        # print("Fail to reject the null hypothesis - there's no significant difference between the groups.")
-        return False, p_value
+smaller_systems_prompt = "You are a helpful assistant. Your outputs adhere to the format given by the user."
 
 
 class Ranker:
@@ -140,23 +51,23 @@ class Ranker:
         )
         return scored_hypotheses
 
-    def compute_metrics(
-        self, scores1: List[float], scores2: List[float], hypothesis: str
-    ) -> dict:
-        metrics = {}
-        metrics["hypothesis"] = hypothesis
-        metrics["score1"] = np.mean(scores1)
-        metrics["score2"] = np.mean(scores2)
-        metrics["diff"] = metrics["score1"] - metrics["score2"]
-        metrics["t_stat"], metrics["p_value"] = t_test(scores1, scores2)
-        metrics["auroc"] = compute_auroc(scores1, scores2)
-        metrics["correct_delta"] = classify(
-            scores1, scores2, threshold=self.args["classify_threshold"]
-        )
-        metrics["distribution"] = wandb.Image(
-            plot_distributions(scores1, scores2, hypothesis=hypothesis)
-        )
-        return metrics
+    # def compute_metrics(
+    #     self, scores1: List[float], scores2: List[float], hypothesis: str
+    # ) -> dict:
+    #     metrics = {}
+    #     metrics["hypothesis"] = hypothesis
+    #     metrics["score1"] = np.mean(scores1)
+    #     metrics["score2"] = np.mean(scores2)
+    #     metrics["diff"] = metrics["score1"] - metrics["score2"]
+    #     metrics["t_stat"], metrics["p_value"] = t_test(scores1, scores2)
+    #     metrics["auroc"] = compute_auroc(scores1, scores2)
+    #     metrics["correct_delta"] = classify(
+    #         scores1, scores2, threshold=self.args["classify_threshold"]
+    #     )
+    #     metrics["distribution"] = wandb.Image(
+    #         plot_distributions(scores1, scores2, hypothesis=hypothesis)
+    #     )
+    #     return metrics
     
 class NullRanker(Ranker):
     def __init__(self, args: Dict):
@@ -169,163 +80,240 @@ class LLMOnlyRanker(Ranker):
     def __init__(self, args: Dict):
         super().__init__(args)
 
-    def score_hypothesis(self, hypothesis: str, dataset: List[dict]) -> List[float]:
-        scores = []
-        invalid_scores = []
-        eval_size = 100
-        for i in trange(0, eval_size):
-            item = dataset[i]
-            text = item["answer"]
-            prompt = f"""Check whether the TEXT satisfies a PROPERTY. Respond with Yes or No. When uncertain, output No. 
-                Now complete the following example -
-                input: PROPERTY: {hypothesis}
-                TEXT: {text}
-                output:
-                """
-            output = get_llm_output(prompt, self.args["model"])
-            if "yes" in output.lower():
-                scores.append(1)
-            elif "no" in output.lower():
-                scores.append(0)
-            else:
-                invalid_scores.append(output)
-        print(f"Percent Invalid {len(invalid_scores) / eval_size}")
-        return scores
-    
-from components.clustering import cluster_with_gpt, log_clusters, batch_cluster_with_gpt
-class DualClusterRanker(Ranker):
+    @staticmethod
+    def extract_scores(text):
+        def extract_helper(text):
+            text = text.replace("*", "")
+            # Create a dictionary to hold the results
+            results = {}
+            
+            # Regex patterns to match the scores and reasoning
+            score_pattern = re.compile(r'Model (A|B) Score: (high|low)', re.IGNORECASE)
+            reasoning_pattern = re.compile(r'Reason:\s*({{reasoning}})', re.IGNORECASE)
+
+            # Find all matches for model scores
+            scores = score_pattern.findall(text)
+            for model, score in scores:
+                if model.upper() == 'A':
+                    results["Model A Score"] = score.lower()
+                elif model.upper() == 'B':
+                    results["Model B Score"] = score.lower()
+            try:
+                if 'high' in results["Model A Score"].lower() and 'low' in results["Model B Score"].lower():
+                    return 1
+                elif 'low' in results["Model A Score"].lower() and 'high' in results["Model B Score"].lower():
+                    return -1
+                elif "low" in results["Model A Score"].lower() and "low" in results["Model B Score"].lower():
+                    return 0
+                elif "high" in results["Model A Score"].lower() and "high" in results["Model B Score"].lower():
+                    return 0
+                elif "medium" in results["Model A Score"].lower() and "medium" in results["Model B Score"].lower():
+                    return 0
+                elif "medium" in results["Model A Score"].lower() and "low" in results["Model B Score"].lower():
+                    return 1
+                elif "medium" in results["Model A Score"].lower() and "high" in results["Model B Score"].lower():
+                    return -1
+                else:
+                    raise ValueError(f"No score found\n{text}")
+            except:
+                # print(f"No score found\n{text}")     
+                raise ValueError(f"No score found\n{text}")
+        try:
+            return extract_helper(text)
+        except:
+            print(f"Error extracting scores from text: {text}")
+            print("fixing....")
+            prompt = """I am trying to parse this string but am getting an error. Here is my expected format:
+
+            Reason: {{reasoning}}
+            Model A Score: {{high/medium/low}} # this should only be the word high, medium, or low
+            Model B Score: {{high/medium/low}} # this should only be the word high, medium, or low
+
+            And here is my string:
+            {text}
+
+            Please reformat the string in the above format for me to parse. Please only respond with the scores and reasoning so I can feed this output directly into my string parser."""
+            text = get_llm_output(prompt.format(text=text), model="gpt-3.5-turbo", system_prompt=smaller_systems_prompt)
+            print(f"fixed?\n{text}\n")
+            extracted = extract_helper(text)
+            print(extracted)
+            return extracted
+
+    def ensemble_scores(self, scores):
+        score_1, score_2 = self.extract_scores(scores[0]), self.extract_scores(scores[1])
+        # Utility function to ensemble scores
+        # If they disagree, return 0
+        return (score_1 + -1 * score_2)/2, score_1 == score_2 and score_1 != 0
 
     @staticmethod
-    def count_matching_lists_with_matches(hypotheses, examples):
-        first_matches = []  # List to hold the first matching string for each list where a match is found
+    def get_score(row, eval_axes, dummy_eval=False):
+        if dummy_eval:
+            return ["Model A Score: high\nModel B Score: low\nReason: Because I said so.", "Model A Score: high\nModel B Score: low\nReason: Because I said so."]
+        else:
+            if row['parent_axis'] not in eval_axes:
+                return None
+
+            # Original prompt
+            prompt_a = f"Question:{row['question']}\nModel A: {row['answer_a']}\nModel B: {row['answer_b']}\n"
+            # Swapped prompt
+            prompt_b = f"Question:{row['question']}\nModel A: {row['answer_b']}\nModel B: {row['answer_a']}\n"
+
+            scoring = """I am trying to explain differences in the behavior of two LLM's (A and B) by comparing their outputs over a dataset of question answer tuples. I have of found axes of variation with the meanings of what it means to be low and high on this axis.
+
+            For the following question answer tuple, please score the two models on the following axis of variation found in the dataset. The axis of variation is as follows:
+            {axes}
+
+            Here is the question answer tuple:
+            {question}
+
+            Please score where the two models fall on the above axis. The score for a given model could be ("low", "high").This will help me understand the differences between the two models in a more structured way. Please provide your thought process when scoring the models before providing the score. Please respond in the following format:
+            Reasoning: {{reasoning}}
+            Model A Score: {{high/low}}
+            Model B Score: {{high/low}}
+
+            """
+
+            # Generate scoring prompts for both orderings
+            scoring_prompt_a = scoring.format(axes=row["parent_axis"], question=prompt_a)
+            scoring_prompt_b = scoring.format(axes=row["parent_axis"], question=prompt_b)
+
+            # Get LLM outputs for both prompts
+            scoring_output_a = get_llm_output(scoring_prompt_a, model="gpt-3.5-turbo", system_prompt=smaller_systems_prompt)
+            scoring_output_b = get_llm_output(scoring_prompt_b, model="gpt-3.5-turbo", system_prompt=smaller_systems_prompt)
+
+            # Ensemble scores and return
+            return [scoring_output_a, scoring_output_b]
+
+    def score_hypothesis(self, hypothesis: str, dataset: List[dict]) -> List[float]:
+        """Given an axis and list of question, answer pairs, score the models on the axis."""
+        print(dataset[0])
+        assert "question" in dataset[0] and "answer_a" in dataset[0] and "answer_b" in dataset[0], "Dataset must contain 'question', 'answer_a', and 'answer_b' keys."
+        scores = []
+        dataset_scores = []
+        for row in dataset:
+            score = self.get_score(row, [hypothesis], dummy_eval=self.args.dummy_eval)
+            if score is not None:
+                row['scores'] = score
+                row["one_sided_score_and_reasoning"] = score[0]
+                row["one_sided_score"] = self.extract_scores(score[0])
+                row["final_score_and_reasoning"] = score
+                ensamble_score, disagree = self.ensemble_scores(score)
+                row["scores_disagree"] = disagree
+                row["final_score"] = ensamble_score
+                scores.append(ensamble_score)
+                dataset_scores.append(row)
+            
+        wandb.summary["percentage_scores_disagree"] = sum([r["scores_disagree"] for r in dataset_scores]) / len(dataset_scores)
+        wandb.summary["percentage_neutral"] = sum([r["final_score"] == 0 for r in dataset_scores if not r["scores_disagree"]]) / len(dataset_scores)
+        return scores, dataset_scores
+    
+    def score(self, axes: List[str], dataset: List[dict]):
+        all_scores, all_dataset_scores = [], []
+        for axis in axes:
+            scores, dataset_scores = self.score_hypothesis(axis, dataset)
+            all_scores.extend(scores)
+            all_dataset_scores.extend(dataset_scores)
+        return all_scores, all_dataset_scores
+
+class RubricRanker(Ranker):
+    def __init__(self, args: Dict):
+        super().__init__(args)
+
+    @staticmethod
+    def generate_rubric(axis):
+
+        prompt = """I am performing qualitative analysis on LLM outputs. I have an axis in which I would like to generate a rubric that I could give a person such that they can rate a prompt-output pair on a scale of -2 to 2 on this axis. 
+
+        Here is my axis name along with what it means to be high or low on this axis:
+        {axis}
+
+        Please be clear and specific for your definitions of what makes a prompt-output pair a score of -2, -1, 0, etc. To assist understanding, please provide a examples of what a -2, -1, 0, 1, 2 would look like on the same prompt. Please ensure this rubric is easy to understand by people and would result in the same scores across multiple human graders."""
+
+        prompt = prompt.format(axis=axis)
+
+        rubric_output = get_llm_output(prompt, model="gpt-4-0125-preview")
+        print(rubric_output)
+
+        convert_prompt = """Below is the output of an LLM asked to generate a rubric. I want to feed this rubric directly into an LLM to score items and remove any beginning or end paragraphs talking to the user about the creation of the rubric. Please extract the rubric from the following text:
+        {output}
         
-        for example_list in examples:
-            # Find the first string in the current list that is in hypotheses
-            for h in hypotheses:
-                if h in example_list:
-                    first_matches.append(h)
-                    break
-                
-        return first_matches
+        Please do not make any edits to the rubric itself. Please output only the rubric."""
+        converted = get_llm_output(convert_prompt.format(output=rubric_output), model="gpt-4")
+        print(f"\n\nconverted\n{converted}")
+        return converted, {"axis": axis, "rubric": rubric_output, "converted_rubric": converted}
 
-    def log_subcluster(self, counts, group_a_hypotheses, group_b_hypotheses):
-        results = []
-        for sub_hpy in counts:
-            if sub_hpy["count"] > 5:
-                # group_a_hyp = [h for h in group_a_hypotheses if h in sub_hpy['examples']]
-                # group_b_hyp = [h for h in group_b_hypotheses if h in sub_hpy['examples']]
-                print(group_a_hypotheses)
-                group_a_hyp = self.count_matching_lists_with_matches(sub_hpy['examples'], group_a_hypotheses)
-                group_b_hyp = self.count_matching_lists_with_matches(sub_hpy['examples'], group_b_hypotheses)
-                group_a_counts, group_b_counts = len(group_a_hyp), len(group_b_hyp)
-                sub_hpy[f'{self.group_names[0]}_counts'] = group_a_counts
-                sub_hpy[f'{self.group_names[1]}_counts'] = group_b_counts
-                sub_hpy[f'{self.group_names[0]}_proportion'] = round(group_a_counts / len(group_a_hypotheses), 3)
-                sub_hpy[f'{self.group_names[1]}_proportion'] = round(group_b_counts / len(group_b_hypotheses), 3)
-                sub_hpy['diff_score'] = round(abs(sub_hpy[f'{self.group_names[0]}_proportion'] - sub_hpy[f'{self.group_names[1]}_proportion']), 3)
-                sub_hpy[f'{self.group_names[0]}_differences'] = group_a_hyp
-                sub_hpy[f'{self.group_names[1]}_differences'] = group_b_hyp
-                results.append(sub_hpy)
+    @staticmethod
+    def get_score(row, axis, rubric, dummy_eval=False):
+        prompt = """I would like to score a given prompt-output pair on the following axis of variation: {axis}. Each prompt-output pair will be scored on a scale of -2 to 2 based on the following rubric:
+        {rubric}
+        
+        Here is the prompt-output pair:
+        {prompt}
+        
+        Please provide your thought process when scoring the prompt-output pair before providing the score. Please respond in the following format:
+        
+        Reasoning: {{reasoning}}
+        Score: {{-2, -1, 0, 1, 2}}"""
 
-        return results
+        prompt_a = prompt.format(axis=axis, rubric=rubric, prompt=f"Prompt: {row['question']}\nResponse: {row['answer_a']}")
+        prompt_b = prompt.format(axis=axis, rubric=rubric, prompt=f"Prompt: {row['question']}\nResponse: {row['answer_b']}")
+        output_a = get_llm_output(prompt_a, model="gpt-3.5-turbo", system_prompt="You are a fair and objective judge of model outputs. Your evaluations are clear, concise, and free from exaggerative language. You strictly adhere to the format and guidelines provided by the user, ensuring each decision is well-supported by the evidence within the outputs themselves.")
+        output_b = get_llm_output(prompt_b, model="gpt-3.5-turbo", system_prompt="You are a fair and objective judge of model outputs. Your evaluations are clear, concise, and free from exaggerative language. You strictly adhere to the format and guidelines provided by the user, ensuring each decision is well-supported by the evidence within the outputs themselves.")
+        return [output_a, output_b]
+    
+    @staticmethod
+    def extract_scores(text):
+        def helper(text):
+            text = text.replace("*", "").replace("+", "")
+            score_pattern = re.compile(r'Score: (-?\d)', re.IGNORECASE)
+            score = score_pattern.findall(text)
+            if "n/a" in score:
+                return 0
+            return int(score[0])
+        try:
+            return helper(text)
+        except:
+            print(f"Error extracting scores from text: {text}")
+            print("fixing....")
+            prompt = """I have an LLM output which is the reasoning and score of a piece of text. Can you convert this string into an output that adheres to the following format:
+            Reasoning: {{reasoning}}
+            Score: {{-2, -1, 0, 1, 2}}
 
-    def is_in_cluster(self, hypotheses, examples):
-        ret = []
-        for hypothesis in hypotheses:
-            flag = False
-            for e in examples:
-                if not flag:
-                    if hypothesis == e:
-                        flag = True
-                        ret.append(hypothesis)
-        return ret
-
-    def rerank_hypotheses(
-        self, hypotheses: List[str], dataset1: List[dict], dataset2: List[dict]
-    ) -> List[dict]:
-        random.seed(self.args["seed"])
-        print(hypotheses)
-        print('*********************')
-        # flatten list of list of str (hypotheses["Model A contains more"]) to list of str
-        print(hypotheses["Model B contains more"])
-        group_a_hypotheses = [item for sublist in hypotheses["Model A contains more"] for item in sublist]
-        group_b_hypotheses = [item for sublist in hypotheses["Model B contains more"] for item in sublist]
-        # group_a_hypotheses = hypotheses["Model A contains more"]
-        # group_b_hypotheses = hypotheses["Model B contains more"]
-        # mix the hypotheses and keep a lsit of which group they belong to
-        mixed_hypotheses = group_a_hypotheses + group_b_hypotheses
-        random.shuffle(mixed_hypotheses)
-        clustering_responces = []
-        response, counts = batch_cluster_with_gpt(mixed_hypotheses, hardcode=False)
-        log_clusters(counts)
-        # look through the counts and assign the hypotheses to the groups
-        scored_hypotheses = {}
-        results = self.log_subcluster(counts, hypotheses["Model A contains more"], hypotheses["Model B contains more"])
-        for hpy in counts:
-            cluster_name = hpy['hypothesis']
-            if hpy["count"] > 10:
-                results = []
-                response, sub_counts = batch_cluster_with_gpt(hpy['examples'], cache=True)
-                results = self.log_subcluster(sub_counts, group_a_hypotheses, group_b_hypotheses)
-                scored_hypotheses[cluster_name] = sorted(results, key=lambda x: x["diff_score"], reverse=True)
-                print(f"---------------------- {cluster_name} ----------------------")
-                print(scored_hypotheses[cluster_name])
-                print(f"-----------------------------------------------------------------")
-                print(f"-----------------------------------------------------------------")
-                # remove the examples from the results
-                for hpy in scored_hypotheses[cluster_name]:
-                    try:
-                        del hpy['examples']
-                    except:
-                        print(hpy)
-        return scored_hypotheses
-
-from components.clustering import cluster_with_gpt, log_clusters, batch_cluster_with_gpt
-class DualClusterRanker2(DualClusterRanker):
-
-    def rerank_hypotheses(
-        self, hypotheses: List[str], dataset1: List[dict], dataset2: List[dict]
-    ) -> List[dict]:
-        random.seed(self.args["seed"])
-        print(hypotheses)
-        group_a_hypotheses = [item for sublist in hypotheses["Model A contains more"] for item in sublist]
-        group_b_hypotheses = [item for sublist in hypotheses["Model B contains more"] for item in sublist]
-        # mix the hypotheses and keep a lsit of which group they belong to
-        mixed_hypotheses = group_a_hypotheses + group_b_hypotheses
-        random.shuffle(mixed_hypotheses)
-        clustering_responces = []
-        response, counts = batch_cluster_with_gpt(mixed_hypotheses, hardcode=False)
-        log_clusters(counts)
-        # look through the counts and assign the hypotheses to the groups
-        scored_hypotheses = {}
-        results = self.log_subcluster(counts, hypotheses["Model A contains more"], hypotheses["Model B contains more"])
-        scored_hypotheses["all"] = sorted(results, key=lambda x: x["diff_score"], reverse=True)
-        for hpy in scored_hypotheses['all']:
-            try:
-                del hpy['examples']
-            except:
-                print(hpy)
-        return scored_hypotheses
+            Here is the string:
+            {output}
+            """
+            text = get_llm_output(prompt.format(output=text), model="gpt-3.5-turbo")
+            print(f"fixed?\n{text}\n")
+            extracted = helper(text)
+            print(extracted)
+            return extracted
 
 
-def test_rankers():
-    args = {
-        "clip_model": "ViT-bigG-14",
-        "clip_dataset": "laion2b_s39b_b160k",
-        "model": "llava",
-        "batch_size": 32,
-        "classify_threshold": 0.3,
-    }
-
-    dataset = pd.read_csv("data/diffusion_plates.csv")
-    dataset = dataset.to_dict("records")
-    dataset1 = [item for item in dataset if item["set"] == "a_plate"][:20]
-    dataset2 = [item for item in dataset if item["set"] == "a_dinner_plate"][:20]
-    for item in dataset1 + dataset2:
-        item["caption"] = get_vlm_output(item["path"], "Describe this image", "llava")
-
-    hypotheses = ["A cat", "Food"]
-
-
-if __name__ == "__main__":
-    test_rankers()
+    def score_hypothesis(self, hypothesis: str, dataset: List[dict]) -> List[float]:
+        """
+        Generate rubric for each hypothesis
+        """
+        rubric, logs = self.generate_rubric(hypothesis)
+        assert "question" in dataset[0] and "answer_a" in dataset[0] and "answer_b" in dataset[0], "Dataset must contain 'question', 'answer_a', and 'answer_b' keys."
+        scores = []
+        dataset_scores = []
+        for row in dataset:
+            score = self.get_score(row, hypothesis, rubric, dummy_eval=self.args.dummy_eval)
+            if score is not None:
+                row['score_a_reasoning'] = score[0]
+                row['score_b_reasoning'] = score[1]
+                row["score_a_score"] = self.extract_scores(score[0])
+                row["score_b_score"] = self.extract_scores(score[1])
+                row["final_score"] = row["score_a_score"] - row["score_b_score"]
+                scores.append(row["score_a_score"] - row["score_b_score"])
+                dataset_scores.append(row)
+        return scores, dataset_scores, logs
+    
+    def score(self, axes: List[str], dataset: List[dict]):
+        all_scores, all_dataset_scores, all_logs = [], [], []
+        for axis in axes:
+            scores, dataset_scores, logs = self.score_hypothesis(axis, dataset)
+            all_scores.extend(scores)
+            all_dataset_scores.extend(dataset_scores)
+            all_logs.append(logs)
+        return all_scores, pd.DataFrame(all_dataset_scores), pd.DataFrame(all_logs)
