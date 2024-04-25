@@ -102,7 +102,7 @@ class LLMPairwiseProposerWithQuestion(Proposer):
         oz_axes = ["Tone", "Format", "Level of Detail", "Ability to answer", "Safety", "Approach", "Creativity", "Fluency and crammatical correctness", "Adherence to prompt"]
 
         # get per question differences
-        results = {"question":[], "answer_a":[], "answer_b":[], "prompt": [], "response": [], "axes": [], "axis_response": []}
+        results = {"question":[], "answer_a":[], "answer_b":[], "response": [], "axis_response": []}
         
         for i, row in tqdm(df.iterrows(), total=df.shape[0]):
             texts = f"{row['question']}\nModel A:\n{row[self.model_columns[0]]}\n\nModel B:\n{row[self.model_columns[1]]}\n"
@@ -111,19 +111,20 @@ class LLMPairwiseProposerWithQuestion(Proposer):
             else:
                 prompt = DEFAULT_PROMPT.format(text=texts)
             response = get_llm_output(prompt, model="gpt-3.5-turbo", system_prompt=self.systems_prompt, trace_name="per question differences").replace("**", "")
-            results["prompt"].append(texts)
+            # results["prompt"].append(texts)
             results["question"].append(row['question'])
             results["answer_a"].append(row[self.model_columns[0]].strip('[]'))
             results["answer_b"].append(row[self.model_columns[1]].strip('[]'))
             results["response"].append(response)
-            results["axes"].append(extract_entities(response))
+            # results["axes"].append(extract_entities(response))
             axis_prompt = AXIS_CONVERSION.format(axes=response)
             axis_response = get_llm_output(axis_prompt, model="gpt-3.5-turbo", system_prompt=self.smaller_systems_prompt, trace_name="convert per question axes")
             results["axis_response"].append(axis_response)
             
+        print([(key, len(results[key])) for key in results.keys()])
         results = pd.DataFrame(results)
         pairwise_differences = results[['question', 'answer_a', 'answer_b', 'response', 'axis_response']]
-        llm_logs = results[['prompt', 'response', 'axes', 'axis_response']]
+        llm_logs = results[['response', 'axis_response']]
 
         results["no_difference_detected"] = results["response"].apply(lambda x: is_match(x, "No differences found"))
         results = results[~results["no_difference_detected"]]

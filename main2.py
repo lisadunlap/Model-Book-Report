@@ -110,7 +110,7 @@ def main():
         print("Len child parent", len(child_parent_map), len(results))
         results['parent_axis'] = child_parent_map
         wandb.log({k: wandb.Table(dataframe=v) for k, v in tables.items()})
-        results['parent_axis_deets'] = results['parent_axis'].apply(parse_high_low) # returns {"parent_axis_name": "error", "parent_high": "error", "parent_low": "error"}
+        # results['parent_axis_deets'] = results['parent_axis'].apply(parse_high_low) # returns {"parent_axis_name": "error", "parent_high": "error", "parent_low": "error"}
 
 
         ######################################
@@ -122,27 +122,26 @@ def main():
         # evaluator = LLMOnlyRanker(args)
         evaluator = getattr(ranker, args.ranker)(args)
         print(results.head())
-        scores, results, scoring_logs = evaluator.score(eval_axes, results.to_dict("records"))
+        metrics, results, scoring_logs = evaluator.score(eval_axes, results.to_dict("records"))
         if args.ranker == "LLMOnlyRanker":
             summary_results = results.groupby('parent_axis').agg({'final_score': 'mean', 'one_sided_score': 'mean', 'question': 'count'}).reset_index()
         else:
             summary_results = results.groupby('parent_axis').agg({'final_score': 'mean', 'score_a_score': 'mean', 'score_b_score': 'mean', 'question': 'count'}).reset_index()
 
         results.to_csv(f"pipeline_results/{save_str}/{tag}-results.csv", index=False)
-        result_plot_table = wandb.Table(dataframe=results)
+        selected_cols = ['question', 'answer_a', 'answer_b', 'response', 'axis_description', 'parent_axis', 'score_a_score', 'score_b_score', 'final_score', 'score_a_reasoning','score_b_reasoning']
+        result_plot_table = wandb.Table(dataframe=results[selected_cols])
         score_distribution_a = [(i, len(results[results['score_a_score'] == i])) for i in range(-2, 3)]
         score_distribution_b = [(i, len(results[results['score_b_score'] == i])) for i in range(-2, 3)]
         score_distribution_a = wandb.Table(data=score_distribution_a, columns=["score", "count"])
         score_distribution_b = wandb.Table(data=score_distribution_b, columns=["score", "count"])
         score_distribution = wandb.Table(data=[(i, len(results[results['final_score'] == i])) for i in range(-4,5)],  columns=["score", "count"])
-        # create barplot of score_a_score value counts
-        # wandb.summary["scores_a_value_counts"] = str(score_distribution_a)
-        # wandb.summary["scores_b_value_counts"] = str(score_distribution_b)
 
         
         wandb.log({"summary_results": wandb.Table(dataframe=summary_results), 
                    "results": result_plot_table, 
                    "scoring_logs": wandb.Table(dataframe=scoring_logs),
+                   "metrics": metrics,
                    "score_a_value_counts: ": wandb.plot.bar(score_distribution_a, "score", "count", title="Score A Value Counts"),
                    "score_b_value_counts: ": wandb.plot.bar(score_distribution_b, "score", "count", title="Score A Value Counts"),
                    "final_score_counts": wandb.plot.bar(score_distribution, "score", "count", title="Final Score Counts"),

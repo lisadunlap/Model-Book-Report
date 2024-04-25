@@ -144,7 +144,7 @@ def match_axis_to_subaxis(axes, parent_axes, embedding_model):
     return categorized_axes
 
 def simplify_axes(parent_axes):
-    remove_duplicates = """Below is a list of axes with a description of what makes a piece of text low or high on this axis. Are there any axes that have similar meanings? Could any of the low and high descriptions be simplified? Please remove any axes with roughly the same meaning and simplify the descriptions of what makes a piece of text low or high on this axis. Please ensure that the descriptions of what makes a piece of text low or high on this axis are distinct and mutually exclusive such that given any pair of text outputs, a human could easily and reliably determine which model is higher or lower on that axis. 
+    remove_duplicates = """Below is a list of axes with a description of what makes a piece of text low or high on this axis. Are there any axes that have similar meanings based off their low and high descriptions? Could any of the low and high descriptions be simplified? Please remove any axes with roughly the same meaning and simplify the descriptions of what makes a piece of text low or high on this axis. Please ensure that the descriptions of what makes a piece of text low or high on this axis are distinct and mutually exclusive such that given any pair of text outputs, a human could easily and reliably determine which model is higher or lower on that axis. 
 
 Here is the list of axes:
 {axes}
@@ -200,7 +200,8 @@ class AxisReducer(Reducer):
         parent_axes = df_cluster['axis'].unique()
         parent_axes = list(set(df_cluster['axis']))
         parent_axes = simplify_axes(parent_axes)
-        print("Parent axes:", parent_axes)
+        print("Parent Axes before simplification:", parent_axes)
+        print("Parent axes AFTER simplification:", parent_axes)
         # match each axis to its parent
         categorized_axes = match_axis_to_subaxis(texts, parent_axes, embedding_model)
         df_cluster['parent_axis'] = match_axis_to_subaxis(list(df_cluster['axis']), parent_axes, embedding_model)

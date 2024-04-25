@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from matplotlib import pyplot as plt
-from scipy.stats import ttest_ind
+from scipy.stats import ttest_ind, ttest_rel
 from sklearn.metrics import roc_auc_score
 from tqdm import tqdm, trange
 import re
@@ -236,6 +236,12 @@ class RubricRanker(Ranker):
 
     @staticmethod
     def get_score(row, axis, rubric, dummy_eval=False):
+        if dummy_eval:
+            return ["Reasoning: Because I said so\nScore: 0", "Reasoning: Because I said so\nScore: 0"]
+        else:
+            if row['parent_axis'] != axis:
+                return None
+            
         prompt = """I would like to score a given prompt-output pair on the following axis of variation: {axis}. Each prompt-output pair will be scored on a scale of -2 to 2 based on the following rubric:
         {rubric}
         
@@ -297,15 +303,34 @@ class RubricRanker(Ranker):
                 row["score_a_score"] = self.extract_scores(score[0])
                 row["score_b_score"] = self.extract_scores(score[1])
                 row["final_score"] = row["score_a_score"] - row["score_b_score"]
-                scores.append(row["score_a_score"] - row["score_b_score"])
+                scores.append((row["score_a_score"], row["score_b_score"]))
                 dataset_scores.append(row)
         return scores, dataset_scores, logs
     
     def score(self, axes: List[str], dataset: List[dict]):
-        all_scores, all_dataset_scores, all_logs = [], [], []
+        all_scores, all_dataset_scores, all_logs, axis_metrics = [], [], [], []
         for axis in axes:
             scores, dataset_scores, logs = self.score_hypothesis(axis, dataset)
             all_scores.extend(scores)
             all_dataset_scores.extend(dataset_scores)
             all_logs.append(logs)
-        return all_scores, pd.DataFrame(all_dataset_scores), pd.DataFrame(all_logs)
+            axis_metrics.append(self.compute_metrics(all_scores))
+
+        return pd.DataFrame(axis_metrics), pd.DataFrame(all_dataset_scores), pd.DataFrame(all_logs)
+    
+    def compute_metrics(self, scores):
+        scores_a, scores_b = zip(*scores)
+        scores_a, scores_b = np.array(scores_a), np.array(scores_b)
+
+        # Compute the mean difference
+        mean_diff = np.mean(scores_a - scores_b)
+
+        # Perform the paired t-test
+        t_statistic, p_value = ttest_rel(scores_a, scores_b)
+
+        return {
+            "mean_diff": mean_diff,
+            "t_statistic": t_statistic,
+            "p_value": p_value,
+            "support": len(scores_a)
+        }
