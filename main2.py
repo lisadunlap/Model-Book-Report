@@ -59,6 +59,8 @@ def main():
         os.environ["WANDB_MODE"] = "dryrun"
     proj_name = "llm_eval_presentable" if not args.dummy_eval else f"llm_eval_refactor_debug"
     global_df = pd.read_csv(args.data_path)
+    # remove duplicate question-answer
+    global_df.drop_duplicates(subset=[args.model_a_column, args.model_b_column], inplace=True)
 
     if args.group_column:
         groups = global_df[args.group_column].unique()
@@ -84,7 +86,7 @@ def main():
             os.makedirs(f"pipeline_results/{save_str}")
 
         # randomly sample 10 rows, set random seed for reproducibility
-        if num_samples:
+        if args.num_samples:
             # df.drop_duplicates(subset=[args.model_a_column, args.model_b_column], inplace=True)
             old_len = df.shape[0]
             # filter out rows where the model outputs are similar
