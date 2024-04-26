@@ -255,6 +255,7 @@ class RubricRanker(Ranker):
 
         prompt_a = prompt.format(axis=axis, rubric=rubric, prompt=f"Prompt: {row['question']}\nResponse: {row['answer_a']}")
         prompt_b = prompt.format(axis=axis, rubric=rubric, prompt=f"Prompt: {row['question']}\nResponse: {row['answer_b']}")
+        print(prompt_a)
         output_a = get_llm_output(prompt_a, model="gpt-3.5-turbo", system_prompt="You are a fair and objective judge of model outputs. Your evaluations are clear, concise, and free from exaggerative language. You strictly adhere to the format and guidelines provided by the user, ensuring each decision is well-supported by the evidence within the outputs themselves.")
         output_b = get_llm_output(prompt_b, model="gpt-3.5-turbo", system_prompt="You are a fair and objective judge of model outputs. Your evaluations are clear, concise, and free from exaggerative language. You strictly adhere to the format and guidelines provided by the user, ensuring each decision is well-supported by the evidence within the outputs themselves.")
         return [output_a, output_b]
@@ -265,7 +266,7 @@ class RubricRanker(Ranker):
             text = text.replace("*", "").replace("+", "")
             score_pattern = re.compile(r'Score: (-?\d)', re.IGNORECASE)
             score = score_pattern.findall(text)
-            if "n/a" in score:
+            if "n/a" in score or "N/A" in score:
                 return 0
             return int(score[0])
         try:
@@ -279,13 +280,13 @@ class RubricRanker(Ranker):
 
             Here is the string:
             {output}
+
+            If the score is not present, please provide a score of 0. Please only respond with the reasoning and score so I can feed this output directly into my string parser.
             """
             text = get_llm_output(prompt.format(output=text), model="gpt-3.5-turbo")
             print(f"fixed?\n{text}\n")
             extracted = helper(text)
-            print(extracted)
             return extracted
-
 
     def score_hypothesis(self, hypothesis: str, dataset: List[dict]) -> List[float]:
         """
@@ -314,11 +315,11 @@ class RubricRanker(Ranker):
             all_scores.extend(scores)
             all_dataset_scores.extend(dataset_scores)
             all_logs.append(logs)
-            axis_metrics.append(self.compute_metrics(all_scores))
+            axis_metrics.append(self.compute_metrics(axis, all_scores))
 
         return pd.DataFrame(axis_metrics), pd.DataFrame(all_dataset_scores), pd.DataFrame(all_logs)
     
-    def compute_metrics(self, scores):
+    def compute_metrics(self, axis, scores):
         scores_a, scores_b = zip(*scores)
         scores_a, scores_b = np.array(scores_a), np.array(scores_b)
 
@@ -329,6 +330,7 @@ class RubricRanker(Ranker):
         t_statistic, p_value = ttest_rel(scores_a, scores_b)
 
         return {
+            "axis": axis,
             "mean_diff": mean_diff,
             "t_statistic": t_statistic,
             "p_value": p_value,

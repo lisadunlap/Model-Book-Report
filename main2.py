@@ -21,9 +21,11 @@ from sklearn.metrics.pairwise import cosine_similarity
 from components.proposer_prompts import *
 from components.parsing_utils import *
 
-from components.proposer import LLMPairwiseProposerWithQuestion
-from components.reducer import AxisReducer
-import components.ranker as ranker
+# from components.proposer import LLMPairwiseProposerWithQuestion
+# from components.reducer import AxisReducer
+import components.ranker as rankers
+import components.proposer as proposers
+import components.reducer as reducers
 
 
 import argparse
@@ -44,6 +46,9 @@ def main():
     parser.add_argument('--group-column', type=str)
     parser.add_argument('--cluster-method', type=str, default='hierarchical', help='clustering method')
     parser.add_argument('--ranker', type=str, default='LLMOnlyRanker', help='ranker to use')
+    parser.add_argument('--proposer', type=str, default='LLMPairwiseProposerWithQuestion', help='proposer to use')
+    parser.add_argument('--reducer', type=str, default='AxisReducer', help='reducer to use')
+    parser.add_argument('--proposer-batch-size', type=str, default=5, help='batch of questions to get differences for')
     args = parser.parse_args()
 
     np.random.seed(args.seed)
@@ -94,7 +99,8 @@ def main():
         # ######################################
         # #### get per question differences ####
         # ######################################
-        proposer = LLMPairwiseProposerWithQuestion(args)
+        # proposer = LLMPairwiseProposerWithQuestion(args)
+        proposer = getattr(proposers, args.proposer)(args)
         all_axis_descriptions, llm_logs, pairwise_differences, results = proposer.propose(df)
         wandb.log({"per_sample_differences": wandb.Table(dataframe=results), "pairwise_diff_llm_logs": wandb.Table(dataframe=llm_logs)})
 
@@ -105,7 +111,8 @@ def main():
         all_axis_descriptions = list(results['axis_description'])
         all_axis_descriptions = [x.replace("*", "") for x in all_axis_descriptions]
 
-        reducer = AxisReducer(args)
+        # reducer = AxisReducer(args)
+        reducer = getattr(reducers, args.reducer)(args)
         parent_axes, child_parent_map, tables = reducer.reduce(all_axis_descriptions)
         print("Len child parent", len(child_parent_map), len(results))
         results['parent_axis'] = child_parent_map
@@ -120,8 +127,7 @@ def main():
         print(f"\n\n{results['parent_axis'].value_counts()}\n{eval_axes}\n\n")
 
         # evaluator = LLMOnlyRanker(args)
-        evaluator = getattr(ranker, args.ranker)(args)
-        print(results.head())
+        evaluator = getattr(rankers, args.ranker)(args)
         metrics, results, scoring_logs = evaluator.score(eval_axes, results.to_dict("records"))
         if args.ranker == "LLMOnlyRanker":
             summary_results = results.groupby('parent_axis').agg({'final_score': 'mean', 'one_sided_score': 'mean', 'question': 'count'}).reset_index()
@@ -142,6 +148,7 @@ def main():
                    "results": result_plot_table, 
                    "scoring_logs": wandb.Table(dataframe=scoring_logs),
                    "metrics": metrics,
+                   "all_parent_axes": wandb.Table(dataframe=results['parent_axis'].value_counts().reset_index()),
                    "score_a_value_counts: ": wandb.plot.bar(score_distribution_a, "score", "count", title="Score A Value Counts"),
                    "score_b_value_counts: ": wandb.plot.bar(score_distribution_b, "score", "count", title="Score A Value Counts"),
                    "final_score_counts": wandb.plot.bar(score_distribution, "score", "count", title="Final Score Counts"),
