@@ -1,65 +1,79 @@
-project: VisDiff
-wandb: true  # whether to log to wandb
-seed: 0  # random seed
-
-data:
-  root: ./data
-  name: Data  # name of dataset
-  group1: "A"  # name of group 1
-  group2: "B"  # name of group 2
-  purity: 1.0  # how much of each concept is in each group (1.0 means perfect seperation, 0.5 means perfect mix)
-  subset: False  # if you want to use a subset of the dataset, set this to name of the desired subset value
-
-captioner:
-  model: blip  # model used in method
-  prompt: "Describe this image in detail."  # prompt to use
-
-# proposer:  # VLM Proposer
-#   method: VLMProposer  # how to propose hypotheses
-#   model: llava
-#   num_rounds: 3  # number of rounds to propose
-#   num_samples: 20  # number of samples per group to use
-#   sampling_method: random  # how to sample
-#   num_hypotheses: 10  # number of hypotheses to generate per round
-#   prompt: VLM_PROMPT  # prompt to use
-
-proposer:  # LLM Proposer
-  method: LLMProposer  # how to propose hypotheses
-  model: gpt-4  # model used in method
-  num_rounds: 3  # number of rounds to propose
-  num_samples: 20  # number of samples per group to use
-  sampling_method: random  # how to sample
-  num_hypotheses: 10  # number of hypotheses to generate per round
-  prompt: CLIP_FRIENDLY  # prompt to use
-  oz_axes: ["Tone", "Format", "Level of Detail", "Ability to answer", "Approach", "Creativity", "Fluency and crammatical correctness", "Specificity and detail", "Adherence to prompt"]
-
-# proposer:  # VLM Feature Proposer
-#   method: VLMFeatureProposer  # how to propose hypotheses
-#   num_rounds: 3  # number of rounds to propose
-#   num_samples: 20  # number of samples per group to use
-#   sampling_method: random  # how to sample
-#   num_hypotheses: 10  # number of hypotheses to generate per round
-
-ranker:  # CLIP Ranker
-  method: CLIPRanker  # how to rank hypotheses
-  clip_model: ViT-bigG-14  # clip model to use
-  clip_dataset: laion2b_s39b_b160k  # clip dataset to use
-  max_num_samples: 5000  # maximum number of samples to use
-  classify_threshold: 0.3  # threshold for clip classification
-
-# ranker:  # LLM Ranker
-#   method: LLMRanker  # how to rank hypotheses
-#   captioner_model: llava  # captioner to use
-#   captioner_prompt: "describe this image in detail."
-#   model: vicuna  # model used in method
-#   classify_threshold: 0.5  # threshold for clip classification
-
-# ranker:  # VLM Ranker
-#   method: VLMRanker  # how to rank hypotheses
-#   model: llava  # model used in method
-#   classify_threshold: 0.5  # threshold for clip classification
-
-evaluator:
-  method: GPTEvaluator  # how to evaluate hypotheses
-  model: gpt-4  # model used in method
-  n_hypotheses: 5  # number of hypotheses to evaluate
+# wandb:
+#   action: store_true
+#   help: log to wandb
+# num_samples:
+#   type: int
+#   help: number of samples to use
+# data_path:
+#   type: str
+#   default: data/all.csv
+#   help: path to data
+# model_a_column:
+#   type: str
+#   default: human_answers
+#   help: column name for model A
+# model_b_column:
+#   type: str
+#   default: chatgpt_answers
+#   help: column name for model B
+# k:
+#   type: int
+#   default: 3
+#   help: number of clusters
+# batch_size:
+#   type: int
+#   default: 50
+#   help: batch size for LLM
+# num_eval:
+#   type: int
+#   default: 3
+#   help: model to use
+# oz:
+#   action: store_true
+#   help: use oz prompt
+# dummy_eval:
+#   action: store_true
+#   help: use dummy eval prompt
+# embedding_model:
+#   type: str
+#   default: text-embedding-3-small
+#   help: embedding model to use
+# seed:
+#   type: int
+#   default: 42
+#   help: random seed
+# group_column:
+#   type: str
+# cluster_method:
+#   type: str
+#   default: hierarchical
+#   help: clustering method
+# ranker:
+#   type: str
+#   default: LLMOnlyRanker
+#   help: ranker to use
+# proposer:
+#   type: str
+#   default: LLMPairwiseProposerWithQuestion
+#   help: proposer to use
+# reducer:
+#   type: str
+#   default: AxisReducer
+#   help: reducer to use
+# proposer_batch_size:
+#   type: str
+#   default: 5
+#   help: batch of questions to get differences for
+data_path: data/all.csv
+model_a_column: human_answers
+model_b_column: chatgpt_answers
+k: 3
+batch_size: 50
+num_eval: 3
+embedding_model: text-embedding-3-small
+seed: 42
+cluster_method: hierarchical
+ranker: LLMOnlyRanker
+proposer: LLMPairwiseProposerWithQuestion
+reducer: AxisReducer
+proposer_batch_size: 5

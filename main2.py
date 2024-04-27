@@ -12,6 +12,7 @@ import seaborn as sns
 import wandb 
 import re
 from tqdm import tqdm
+from omegaconf import OmegaConf
 
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import DBSCAN, KMeans, AgglomerativeClustering, SpectralClustering
@@ -50,6 +51,8 @@ def main():
     parser.add_argument('--reducer', type=str, default='AxisReducer', help='reducer to use')
     parser.add_argument('--proposer-batch-size', type=str, default=5, help='batch of questions to get differences for')
     args = parser.parse_args()
+    # turn args into omegaconf object
+    args = OmegaConf.create(vars(args))
 
     np.random.seed(args.seed)
     random.seed(args.seed)
@@ -74,7 +77,7 @@ def main():
         else:
             df = global_df
         model_group = f"{args.model_a_column}_{args.model_b_column}"
-        wandb.init(project=proj_name, entity="lisadunlap", config=vars(args), group=model_group, name=f"{args.group_column}-{group}")
+        wandb.init(project=proj_name, entity="lisadunlap", config=dict(args), group=model_group, name=f"{args.group_column}-{group}")
 
         # create str of datapath for savins
         num_samples = min(args.num_samples, df.shape[0]) if args.num_samples else df.shape[0]
