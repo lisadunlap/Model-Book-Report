@@ -69,7 +69,7 @@ class LLMProposer(Proposer):
     Here are the questions:
     {text}
     
-    Please output a numbered list of differences between the two groups of questions."""
+    Please output a numbered list of differences between the two groups of questions. If there are no clear differences, please output "No differences found"."""
 
     conversion = """The following is an LLM output containing the axes of variation that you can consider when comparing two lists of questions (A and B):
 
@@ -96,13 +96,20 @@ class LLMProposer(Proposer):
         super().__init__(args)
         self.batch_size = self.args.batch_size
 
-    def propose(self, texts1: List[str], texts2: List[str]) -> Tuple[List[str], Dict]:
+    def propose_one_side(self, texts1: List[str], texts2: List[str]) -> Tuple[List[str], Dict]:
         # batch the texts and call llm to get differences
         prompt = self.question_diff_prompt.format(text="Group A:" + "\n".join(texts1) + "\n\nGroup B:" + "\n".join(texts2))
-        output = get_llm_output(prompt, 'gpt-4')
-        converted = get_llm_output(self.conversion.format(axes=output), 'gpt-4')
+        output = get_llm_output(prompt, 'claude-3-opus-20240229')
+        converted = get_llm_output(self.conversion.format(axes=output), 'claude-3-opus-20240229')
         logs = {"prompt": prompt, "output": output, "conversion_prompt": self.conversion.format(axes=output), "converted": converted}
         return output, converted, logs
+    
+    def propose(self, texts1: List[str], texts2: List[str]) -> Tuple[List[str] | List[Dict]]:
+        max_size = 30
+        sample_texts_1, sample_texts_2 = random.sample(texts1, min(len(texts1), max_size)), random.sample(texts2, min(len(texts2), max_size))
+        left_output, left_converted, left_logs = self.propose_one_side(sample_texts_1, sample_texts_2)
+        right_output, right_converted, right_logs = self.propose_one_side(sample_texts_2, sample_texts_1)
+        return left_output, left_converted, left_logs, right_output, right_converted, right_logs
 
 # class LLMProposer(Proposer):
 #     def __init__(self, args: Dict):
@@ -165,7 +172,6 @@ class LLMPairwiseProposerWithQuestion(Proposer):
             axis_response = get_llm_output(axis_prompt, model="gpt-3.5-turbo", system_prompt=self.smaller_systems_prompt, trace_name="convert per question axes")
             results["axis_response"].append(axis_response)
             
-        print([(key, len(results[key])) for key in results.keys()])
         results = pd.DataFrame(results)
         pairwise_differences = results[['question', 'answer_a', 'answer_b', 'response', 'axis_response']]
         llm_logs = results[['response', 'axis_response']]
@@ -234,7 +240,7 @@ class LLMBatchProposer(LLMPairwiseProposerWithQuestion):
             results["axis_response"].extend([axis_response] * len(batch))
             llm_logs.append(logs)
 
-        print([(key, len(results[key])) for key in results.keys()])
+        # print([(key, len(results[key])) for key in results.keys()])
         results = pd.DataFrame(results)
         pairwise_differences = results[['question', 'answer_a', 'answer_b', 'response', 'axis_response']]
         llm_logs = pd.DataFrame(llm_logs)

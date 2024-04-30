@@ -7,30 +7,42 @@ from typing import List
 import lmdb
 import openai
 from openai import OpenAI
+import anthropic
 import datetime
 from wandb.sdk.data_types.trace_tree import Trace
 
-from serve.global_vars import LLM_CACHE_FILE, VICUNA_URL, LLM_EMBED_CACHE_FILE
+from serve.global_vars import LLM_CACHE_FILE, VICUNA_URL, LLM_EMBED_CACHE_FILE, OPENAI_API_KEY, ANTHROPIC_API_KEY
 from serve.utils_general import get_from_cache, save_to_cache, save_emb_to_cache, get_emb_from_cache
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.ERROR)
 
 if not os.path.exists(LLM_CACHE_FILE):
     os.makedirs(LLM_CACHE_FILE)
 
 llm_cache = lmdb.open(LLM_CACHE_FILE, map_size=int(1e11))
 llm_embed_cache = lmdb.open(LLM_EMBED_CACHE_FILE, map_size=int(1e11))
+os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
+os.environ["ANTHROPIC_API_KEY"] = ANTHROPIC_API_KEY
 openai.api_key = os.environ["OPENAI_API_KEY"]
+anthropic.api_key = os.environ["ANTHROPIC_API_KEY"]
 
 
 def get_llm_output(prompt: str, model: str, cache = True, system_prompt = None, history=[], trace_name="root_span") -> str:
 
     openai.api_base = "https://api.openai.com/v1" if model != "vicuna" else VICUNA_URL
-    client = OpenAI()
+    if 'claude' not in model:
+        client = OpenAI()
+    else:
+        client = anthropic.Anthropic()
+        
     systems_prompt = "You are a helpful assistant." if not system_prompt else system_prompt
 
     if model in ["gpt-3.5-turbo", "gpt-4", "gpt-4-0125-preview"]:
         messages = [{"role": "system", "content": systems_prompt}] + history + [
+            {"role": "user", "content": prompt},
+        ]
+    elif 'claude' in model:
+        messages = history + [
             {"role": "user", "content": prompt},
         ]
     else:
@@ -58,6 +70,14 @@ def get_llm_output(prompt: str, model: str, cache = True, system_prompt = None, 
                 )
                 end_time_ms = round(datetime.datetime.now().timestamp() * 1000)  # logged in milliseconds
                 response = completion.choices[0].message.content.strip()
+            elif 'claude' in model:
+                completion = client.messages.create(
+                    model="claude-3-opus-20240229",
+                    messages=messages,
+                    max_tokens=1024,
+                    system=systems_prompt,
+                )
+                response = completion.content[0].text
             elif model == "vicuna":
                 completion = client.chat.completions.create(
                     model="lmsys/vicuna-7b-v1.5",

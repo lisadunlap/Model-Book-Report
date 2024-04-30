@@ -9,11 +9,14 @@ from scipy.stats import ttest_ind, ttest_rel
 from sklearn.metrics import roc_auc_score
 from tqdm import tqdm, trange
 import re
+import itertools
 
 import wandb
 from serve.utils_clip import get_embeddings
 from serve.utils_llm import get_llm_output
 from serve.utils_vlm import get_vlm_output
+
+from components.proposer import LLMProposer
 
 smaller_systems_prompt = "You are a helpful assistant. Your outputs adhere to the format given by the user."
 
@@ -171,7 +174,6 @@ class LLMOnlyRanker(Ranker):
 
     def score_hypothesis(self, hypothesis: str, dataset: List[dict]) -> List[float]:
         """Given an axis and list of question, answer pairs, score the models on the axis."""
-        print(dataset[0])
         assert "question" in dataset[0] and "answer_a" in dataset[0] and "answer_b" in dataset[0], "Dataset must contain 'question', 'answer_a', and 'answer_b' keys."
         scores = []
         dataset_scores = []
@@ -204,6 +206,7 @@ class RubricRanker(Ranker):
     def __init__(self, args: Dict):
         super().__init__(args)
         random.seed(args.seed)
+        self.diff_proposer = LLMProposer(args)
 
     @staticmethod
     def generate_rubric(axis):
@@ -224,14 +227,12 @@ class RubricRanker(Ranker):
         prompt = prompt.format(axis=axis)
 
         rubric_output = get_llm_output(prompt, model="gpt-4-0125-preview")
-        print(rubric_output)
 
         convert_prompt = """Below is the output of an LLM asked to generate a rubric. I want to feed this rubric directly into an LLM to score items and remove any beginning or end paragraphs talking to the user about the creation of the rubric. Please extract the rubric from the following text:
         {output}
         
         Please do not make any edits to the rubric itself. Please output only the rubric."""
         converted = get_llm_output(convert_prompt.format(output=rubric_output), model="gpt-4")
-        print(f"\n\nconverted\n{converted}")
         return converted, {"axis": axis, "rubric": rubric_output, "converted_rubric": converted}
 
     @staticmethod
@@ -255,7 +256,6 @@ class RubricRanker(Ranker):
 
         prompt_a = prompt.format(axis=axis, rubric=rubric, prompt=f"Prompt: {row['question']}\nResponse: {row['answer_a']}")
         prompt_b = prompt.format(axis=axis, rubric=rubric, prompt=f"Prompt: {row['question']}\nResponse: {row['answer_b']}")
-        print(prompt_a)
         output_a = get_llm_output(prompt_a, model="gpt-3.5-turbo", system_prompt="You are a fair and objective judge of model outputs. Your evaluations are clear, concise, and free from exaggerative language. You strictly adhere to the format and guidelines provided by the user, ensuring each decision is well-supported by the evidence within the outputs themselves.")
         output_b = get_llm_output(prompt_b, model="gpt-3.5-turbo", system_prompt="You are a fair and objective judge of model outputs. Your evaluations are clear, concise, and free from exaggerative language. You strictly adhere to the format and guidelines provided by the user, ensuring each decision is well-supported by the evidence within the outputs themselves.")
         return [output_a, output_b]
@@ -285,7 +285,10 @@ class RubricRanker(Ranker):
             """
             text = get_llm_output(prompt.format(output=text), model="gpt-3.5-turbo")
             print(f"fixed?\n{text}\n")
-            extracted = helper(text)
+            try:
+                extracted = helper(text)
+            except:
+                extracted = 0
             return extracted
 
     def score_hypothesis(self, hypothesis: str, dataset: List[dict]) -> List[float]:
@@ -310,14 +313,42 @@ class RubricRanker(Ranker):
     
     def score(self, axes: List[str], dataset: List[dict]):
         all_scores, all_dataset_scores, all_logs, axis_metrics = [], [], [], []
+        group_based_metrics = []
         for axis in axes:
             scores, dataset_scores, logs = self.score_hypothesis(axis, dataset)
             all_scores.extend(scores)
             all_dataset_scores.extend(dataset_scores)
             all_logs.append(logs)
-            axis_metrics.append(self.compute_metrics(axis, all_scores))
+            metrics = self.compute_metrics(axis, scores)
+            if len(metrics["max_diff_subset"]) > 0:
+                max_diff_questions = pd.DataFrame([dataset_scores[i] for i in metrics["max_diff_subset"]])[["question", "answer_a", "answer_b", "score_a_score", "score_b_score", "final_score"]]
+                not_max_diff_questions = pd.DataFrame([dataset_scores[i] for i in range(len(dataset_scores)) if i not in metrics["max_diff_subset"]])[["question", "answer_a", "answer_b", "score_a_score", "score_b_score", "final_score"]]
+                # not_max_diff_questions = [dataset[i][['question', 'answer_a', 'answer_b', 'score_a_score', 'score_b_score', 'final_score']] for i in range(len(dataset)) if i not in metrics["max_diff_subset"]]
+                left_output, left_converted, left_logs, right_output, right_converted, right_logs= self.diff_proposer.propose(max_diff_questions['question'].tolist(), not_max_diff_questions['question'].tolist())
+                metrics["question_hypotheses_left"] = left_output
+                metrics["question_hypotheses_converted_left"] = left_converted
+                metrics["question_hypotheses_right"] = right_output
+                metrics["question_hypotheses_converted_right"] = right_converted
+                wandb.log({f"{axis}_max_diff_questions": wandb.Table(dataframe=max_diff_questions)})
+            else:
+                metrics["question_hypotheses_left"] = ""
+                metrics["question_hypotheses_converted_left"] = ""
+                metrics["question_hypotheses_right"] = ""
+                metrics["question_hypotheses_converted_right"] = ""
+            ## remove the max_diff_subset from the metrics
+            del metrics["max_diff_subset"]
+            axis_metrics.append(metrics)
 
         return pd.DataFrame(axis_metrics), pd.DataFrame(all_dataset_scores), pd.DataFrame(all_logs)
+    
+    @staticmethod
+    def find_max_mean_diff_subset(scores_a, scores_b, n, threshold=2):
+        diffs = np.array([np.abs(a - b) for a, b in zip(scores_a, scores_b)])
+        selected_indices = np.where(diffs >= threshold)[0]
+        if len(selected_indices) == 0:
+            return 0, []
+
+        return np.mean(diffs[selected_indices]), selected_indices.tolist()
     
     def compute_metrics(self, axis, scores):
         scores_a, scores_b = zip(*scores)
@@ -329,10 +360,16 @@ class RubricRanker(Ranker):
         # Perform the paired t-test
         t_statistic, p_value = ttest_rel(scores_a, scores_b)
 
+        # find the max mean difference across all subsets of size n
+        max_diff, max_subset_idxs = self.find_max_mean_diff_subset(scores_a, scores_b, 10)
+
         return {
             "axis": axis,
             "mean_diff": mean_diff,
             "t_statistic": t_statistic,
             "p_value": p_value,
-            "support": len(scores_a)
+            "support": len(scores_a),
+            "max_diff": max_diff,
+            "max_diff_subset_len": len(max_subset_idxs),
+            "max_diff_subset": max_subset_idxs
         }
