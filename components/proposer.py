@@ -58,9 +58,6 @@ class Proposer:
     def sample(self, dataset: List[Dict], n: int) -> List[Dict]:
         if self.args['sampling_method'] == 'random':
             return random.sample(dataset, n)
-        # elif self.args["proposer"]["sampling_method"] == 'classifier':
-        #     model = torch.load("classifier.pt")
-        #     return classifier_sampler(dataset, model, n)
 
 class LLMProposer(Proposer):
 
@@ -71,25 +68,16 @@ class LLMProposer(Proposer):
     
     Please output a numbered list of differences between the two groups of questions. If there are no clear differences, please output "No differences found"."""
 
-    conversion = """The following is an LLM output containing the axes of variation that you can consider when comparing two lists of questions (A and B):
+    combine_two_sides = """
+    I have two lists of questions, 1 and 2, and I would like to understand the differences between these two groups. To do this I have fed in the questions from both groups into a language model and asked for the differences between the two groups. Here is the output of comparing group 1 and 2 (named A and B):
+    
+    {left_output}
 
-        {axes}
+    To ensure that the differences are not due to the order of the questions, I have also compared group 2 and 1 (group 2 is now A and group 1 is now B). Here is the output of comparing group 2 and 1:
 
-        I want to formalize exactly what it means to be high and low on each axis. For each axis, I want you to provide a description of what it means to be high and low on that axis, as well as a score of where the two models fall on that axis. The score for a given model could be ("low", "high").This will help me understand the differences between the two models in a more structured way. Your output should be in this format:
+    {right_output}
 
-        - {{axis_1}}:
-            High: {{description of high}}
-            Low: {{description of low}}
-            Model A Score: {{score for Model A}}
-            Model B Score: {{score for Model B}}
-
-        - {{axis_2}}:
-            High: {{description of high}}
-            Low: {{description of low}}
-            Model A Score: {{score for Model A}}
-            Model B Score: {{score for Model B}}
-
-        Please ensure that the description what is high and low on the axis are distinct and mutually exclusive such that given any unseen pair of text outputs, a human could easily and reliably determine which model is higher or lower on that axis. Please the axis name and descriptions of what is high and low are less than 5 words each, and ensure the scores are accurate representations of the outputs of the two models.
+    Please use this to determine if there are any differences between the two groups of questions that are consistent across both comparisons. For instance, if group 1 was given quality 1 and group 2 quality 2 when comaring groups 1 and 2, this would be correct if when comparing group 2 to group 1 the output gives group 2 quality 1 and group 1 quality 2. If none of the differences are consistent across both comparisons, please output "No consistent differences found".
     """
 
     def __init__(self, args: Dict):
@@ -100,40 +88,72 @@ class LLMProposer(Proposer):
         # batch the texts and call llm to get differences
         prompt = self.question_diff_prompt.format(text="Group A:" + "\n".join(texts1) + "\n\nGroup B:" + "\n".join(texts2))
         output = get_llm_output(prompt, 'claude-3-opus-20240229')
-        converted = get_llm_output(self.conversion.format(axes=output), 'claude-3-opus-20240229')
-        logs = {"prompt": prompt, "output": output, "conversion_prompt": self.conversion.format(axes=output), "converted": converted}
-        return output, converted, logs
+        # converted = get_llm_output(self.conversion.format(axes=output), 'claude-3-opus-20240229')
+        logs = {"prompt": prompt, "output": output, "conversion_prompt": self.conversion.format(axes=output)}
+        return output, logs
     
-    def propose(self, texts1: List[str], texts2: List[str]) -> Tuple[List[str] | List[Dict]]:
+    def propose(self, texts1: List[str], texts2: List[str]):
         max_size = 30
         sample_texts_1, sample_texts_2 = random.sample(texts1, min(len(texts1), max_size)), random.sample(texts2, min(len(texts2), max_size))
-        left_output, left_converted, left_logs = self.propose_one_side(sample_texts_1, sample_texts_2)
-        right_output, right_converted, right_logs = self.propose_one_side(sample_texts_2, sample_texts_1)
-        return left_output, left_converted, left_logs, right_output, right_converted, right_logs
+        left_output, left_logs = self.propose_one_side(sample_texts_1, sample_texts_2)
+        right_output, right_logs = self.propose_one_side(sample_texts_2, sample_texts_1)
 
-# class LLMProposer(Proposer):
-#     def __init__(self, args: Dict):
-#         super().__init__(args)
+        combined = get_llm_output(self.combine_two_sides.format(left_output=left_output, right_output=right_output), 'claude-3-opus-20240229')
+        return {
+            "left_output": left_output,
+            "right_output": right_output,
+            "combined": combined,
+            "logs": {
+                "left": left_logs,
+                "right": right_logs,
+                "combined": combined
+            }
+        
+        }
+    
+def extract_questions(text):
+    # Remove leading/trailing whitespace and newlines
+    text = text.strip()
 
-#     def get_hypotheses(
-#         self, sampled_dataset1: List[Dict], sampled_dataset2: List[Dict]
-#     ) -> Tuple[List[str], Dict]:
-#         self.captioning(sampled_dataset1)
-#         self.captioning(sampled_dataset2)
-#         captions1 = [
-#             f"Group A: {item['answer']}".replace("\n", " ").strip()
-#             for item in sampled_dataset1
-#         ]
-#         captions2 = [
-#             f"Group B: {item['answer']}".replace("\n", " ").strip()
-#             for item in sampled_dataset2
-#         ]
-#         caption_concat = "\n".join(captions1 + captions2)
-#         prompt = self.prompt.format(text=caption_concat)
-#         output = get_llm_output(prompt, self.args["model"])
-#         hypotheses = [line.replace("* ", "") for line in output.splitlines()]
-#         logs = {"prompt": prompt, "output": output}
-#         return hypotheses, logs
+    # Split the text into lines
+    lines = text.split('\n')
+
+    questions = []
+    current_question = ''
+
+    for line in lines:
+        # Check if the line starts with a number or a bullet point
+        if re.match(r'^(\d+|[-*])\.\s', line.strip()):
+            if current_question:
+                questions.append(current_question.strip())
+            current_question = line.strip()
+        else:
+            current_question += ' ' + line.strip()
+
+    # Append the last question
+    if current_question:
+        questions.append(current_question.strip())
+
+    return questions
+    
+class LLMProposerWithQuestion(LLMProposer):
+
+    question_diff_prompt = """I have two lists of questions, A and B, and I would like to understand the differences between these two groups. To do this I have fed in the questions from both groups into a language model and asked for the differences between the two groups and got the following output:
+
+    {output}
+
+    I want validate these differences by coming up with a set of questions that i can ask and llm (e.g. how open ended is this question?) such that i can correctly categorize a question in group a or b given the answers. Please output a bulleted list of questions that i can ask to categorize a question into group A or B. If the questions are nearly identical, please write "No differences found."
+    """
+
+    def __init__(self, args: Dict):
+        super().__init__(args)
+        self.batch_size = self.args.batch_size
+    
+    def propose(self, texts1: List[str], texts2: List[str]):
+        diff_results = super().propose(texts1, texts2)
+        output = diff_results["combined"]
+        questions = get_llm_output(self.question_diff_prompt.format(output=output), 'claude-3-opus-20240229')
+        return extract_questions(questions), questions
     
 class LLMPairwiseProposerWithQuestion(Proposer):
     def __init__(self, args: Dict):
@@ -212,9 +232,9 @@ class LLMBatchProposer(LLMPairwiseProposerWithQuestion):
             prompt = OZ_PROMPT.format(text=texts, axes="\n".join([f"* {axis}" for axis in oz_axes]))
         else:
             prompt = DEFAULT_PROMPT.format(text=texts)
-        response = get_llm_output(prompt, model="gpt-3.5-turbo", system_prompt=self.systems_prompt, trace_name="per question differences").replace("**", "")
+        response = get_llm_output(prompt, model="gpt-4-0125-preview", system_prompt=self.systems_prompt, trace_name="per question differences").replace("**", "")
         axis_prompt = AXIS_CONVERSION.format(axes=response)
-        axis_response = get_llm_output(axis_prompt, model="gpt-3.5-turbo", system_prompt=self.smaller_systems_prompt, trace_name="convert per question axes")
+        axis_response = get_llm_output(axis_prompt, model="gpt-4-0125-preview", system_prompt=self.smaller_systems_prompt, trace_name="convert per question axes")
         return response, axis_response, {"proposal_prompt": prompt, "response": response, "conversion_prompt": axis_prompt, "axis_response": axis_response}
 
     def propose(
@@ -254,6 +274,62 @@ class LLMBatchProposer(LLMPairwiseProposerWithQuestion):
 
         all_axis_descriptions = list(set(results['axis_description']))
         return all_axis_descriptions, llm_logs, pairwise_differences, results
+
+class LLMProposerMultiModel(LLMBatchProposer):
+
+    def __init__(self, args: Dict):
+        super().__init__(args)
+        self.systems_prompt = "Given a dataset of text outputs from two different large language models (LLMs), your task is to analyze and summarize the data based on specific characteristics. The goal is to identify and cluster similar behaviors or traits within the outputs, summarizing these into a concise list of commonly observed behaviors for each model. This analysis will help in understanding the general behaviors of these models for auditing, error discovery, and comparison purposes. Your outputs adhere to the format given by the user."
+        self.smaller_systems_prompt = "You are a helpful assistant. Your outputs adhere to the format given by the user."
+        self.model_columns = args.models
+        self.batch_size = args.proposer_batch_size
+
+    def propose_batch(self, df):
+        """
+        Get differences over a list of prompts
+        """
+
+        proposer_prompt = """
+            The following are the result of asking a set language models to generate an answer for the same questions:
+
+            {text}
+
+            I am a machine learning researcher trying to figure out the major differences between these two LLM outputs so I can better compare the behavior of these models. Are there any general patterns, clusters, or variations you notice in the outputs? 
+
+        Please output a list differences between these sets of outputs with relation to specific axes of variation. Try to give axes that a human could easily interpret and they could understand what it means to be higher or lower on that specific axis. Please ensure that the concepts used to explain what is high and low on the axis are distinct and mutually exclusive such that given any tuple of text outputs, a human could easily and reliably determine which model is higher or lower on that axis.
+        
+        Here are some axes of variation to consider:
+
+        {axes}
+
+        This list is not exhaustive, please add new axes in your response even if it does not fit under one of these categories. If the outputs are roughly the same along one of the provided axes do not include it. 
+
+        The format of response should be a bulleted list of differences, one bullet for each axis. The format should be
+        - {{axis_1}}: {{difference}}
+        - {{axis_2}}: {{difference}}
+            
+            Please output differences which have a possibility of showing up in future unseen data and which would be useful for a human to know about when deciding with LLM to use. For each axis, define clearly and succinctly what constitutes a high or low score, ensuring these definitions are mutually exclusive. For each axis, also provide an explanation of what in the text proves this difference exists. Please order your response in terms of the most prominent differences between the two outputs. If the outputs are nearly identical, please write "No differences found."
+        """
+
+        assert "question" in df.columns, "'question' column not in dataset"
+        random.seed(self.args.seed)
+        oz_axes = ["Tone", "Format", "Level of Detail", "Ability to answer", "Safety", "Approach", "Creativity", "Fluency and crammatical correctness", "Adherence to prompt"]
+
+        # get per question differences
+        texts = []
+        for i, row in tqdm(df.iterrows(), total=df.shape[0]):
+            for j, model in enumerate(self.model_columns):
+                texts.append(f"{row['question']}\nModel {j}:\n{row[model]}\n")
+            texts.append(f"{row['question']}\nModel A:\n{row[self.model_columns[0]]}\n\nModel B:\n{row[self.model_columns[1]]}\n")
+        texts = "\n".join(texts)
+        if self.args.oz:
+            prompt = OZ_PROMPT.format(text=texts, axes="\n".join([f"* {axis}" for axis in oz_axes]))
+        else:
+            prompt = DEFAULT_PROMPT.format(text=texts)
+        response = get_llm_output(prompt, model="gpt-4-0125-preview", system_prompt=self.systems_prompt, trace_name="per question differences").replace("**", "")
+        axis_prompt = AXIS_CONVERSION.format(axes=response)
+        axis_response = get_llm_output(axis_prompt, model="gpt-4-0125-preview", system_prompt=self.smaller_systems_prompt, trace_name="convert per question axes")
+        return response, axis_response, {"proposal_prompt": prompt, "response": response, "conversion_prompt": axis_prompt, "axis_response": axis_response}
         
 def test_proposers():
     dataset = pd.read_csv("data/diffusion_plates.csv")

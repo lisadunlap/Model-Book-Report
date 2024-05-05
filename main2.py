@@ -33,6 +33,7 @@ import argparse
 def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('--wandb', action='store_true', help='log to wandb')
+    parser.add_argument('--project', type=str, default='llm_eval_presentable', help='wandb project name')
     parser.add_argument('--num-samples', type=int, help='number of samples to use')
     parser.add_argument('--data-path', type=str, default='data/all.csv', help='path to data')
     parser.add_argument('--model-a-column', type=str, default='human_answers', help='column name for model A')
@@ -47,11 +48,14 @@ def main():
     parser.add_argument('--group-column', type=str)
     parser.add_argument('--cluster-method', type=str, default='hierarchical', help='clustering method')
     parser.add_argument('--ranker', type=str, default='LLMOnlyRanker', help='ranker to use')
-    parser.add_argument('--proposer', type=str, default='LLMPairwiseProposerWithQuestion', help='proposer to use')
+    parser.add_argument('--proposer', type=str, default='LLMBatchProposer', help='proposer to use')
     parser.add_argument('--reducer', type=str, default='AxisReducer', help='reducer to use')
-    parser.add_argument('--proposer-batch-size', type=str, default=5, help='batch of questions to get differences for')
+    parser.add_argument('--proposer-batch-size', type=int, default=10, help='batch of questions to get differences for')
     parser.add_argument("--save-dir", type=str, default="pipeline_results", help="directory to save results")
     parser.add_argument("--eval-only", action="store_true", help="only run evaluation")
+    parser.add_argument("--heldout-percentage", type=float, default=0.5, help="percentage of data to holdout")
+    parser.add_argument("--axes", nargs="+", help="axes to evaluate")
+    parser.add_argument("--test", action="store_true", help="run test")
     args = parser.parse_args()
     # turn args into omegaconf object
     args = OmegaConf.create(vars(args))
@@ -62,7 +66,8 @@ def main():
     # tirn off wandb logging
     if not args.wandb:
         os.environ["WANDB_MODE"] = "dryrun"
-    proj_name = "llm_eval_presentable" if not args.dummy_eval else f"llm_eval_refactor_debug"
+    proj_name = args.project if not args.dummy_eval else f"llm_eval_refactor_debug"
+    proj_name = f"{proj_name}_test" if args.test else proj_name
     global_df = pd.read_csv(args.data_path)
     # remove duplicate question-answer
     global_df.drop_duplicates(subset=[args.model_a_column, args.model_b_column], inplace=True)
@@ -73,6 +78,9 @@ def main():
         print(f"Group value counts: {global_df[args.group_column].value_counts()}")
     else:
         groups = ["all"]
+
+    if args.test:
+        groups = groups[:3]
     for group in groups:
         if args.group_column:
             df = global_df[global_df[args.group_column] == group]
@@ -102,9 +110,19 @@ def main():
             df = df[df[args.model_a_column] != df[args.model_b_column]]
             df = df.sample(num_samples, random_state=args.seed)
 
-        print(f"Running a VibeCheck on {df.shape[0]} samples")
+        # assign args.heldout_percentage of the data to the heldout set
+        df['answer_a'] = df[args.model_a_column]
+        df['answer_b'] = df[args.model_b_column]
+        heldout_len = int(df.shape[0] * args.heldout_percentage)
+        heldout_df = df.sample(heldout_len, random_state=args.seed)
+        df = df.drop(heldout_df.index)
 
-        if not args.eval_only:
+        print(f"Running a VibeCheck on {df.shape[0]} samples")
+        if args.eval_only:
+            print(f"Running eval only on {heldout_df.shape[0]} samples")
+        elif args.axes:
+            print(f"Running eval on {len(args.axes)} axes : {args.axes}")
+        else:
             # ######################################
             # #### get per question differences ####
             # ######################################
@@ -128,6 +146,7 @@ def main():
             wandb.log({k: wandb.Table(dataframe=v) for k, v in tables.items()})
             # results['parent_axis_deets'] = results['parent_axis'].apply(parse_high_low) # returns {"parent_axis_name": "error", "parent_high": "error", "parent_low": "error"}
             results.to_csv(f"{args.save_dir}/{save_str}/{tag}-results.csv", index=False)
+            eval_axes = results['parent_axis'].value_counts()[:args.num_eval].index.tolist()
 
         ######################################
         ############  score axes  ############
@@ -138,35 +157,31 @@ def main():
                 raise ValueError(f"Results file not found at {args.save_dir}/{save_str}/{tag}-results.csv")
             print(f"Loading {args.save_dir}/{save_str}/{tag}-results.csv...")
             results = pd.read_csv(f"{args.save_dir}/{save_str}/{tag}-results.csv")
-        eval_axes = results['parent_axis'].value_counts()[:args.num_eval].index.tolist()
-        print(f"\n\n{results['parent_axis'].value_counts()}\n{eval_axes}\n\n")
+
+            print(results.columns)
+            eval_axes = results['parent_axis'].value_counts()[:args.num_eval].index.tolist()
+            print(f"\n\n{results['parent_axis'].value_counts()}\n{eval_axes}\n\n")
+            results.to_csv(f"{args.save_dir}/{save_str}/{tag}-eval-results.csv", index=False)
+            metrics.to_csv(f"{args.save_dir}/{save_str}/{tag}-eval-metrics.csv", index=False)
+        elif args.axes:
+            eval_axes = args.axes
 
         # evaluator = LLMOnlyRanker(args)
         evaluator = getattr(rankers, args.ranker)(args)
-        metrics, results, scoring_logs = evaluator.score(eval_axes, results.to_dict("records"))
-        if args.ranker == "LLMOnlyRanker":
-            summary_results = results.groupby('parent_axis').agg({'final_score': 'mean', 'one_sided_score': 'mean', 'question': 'count'}).reset_index()
-        else:
-            summary_results = results.groupby('parent_axis').agg({'final_score': 'mean', 'score_a_score': 'mean', 'score_b_score': 'mean', 'question': 'count'}).reset_index()
+        metrics, results, scoring_logs = evaluator.score(eval_axes, heldout_df.to_dict("records"))
+        results.to_csv(f"{args.save_dir}/{save_str}/{tag}-eval-results.csv", index=False)
+        results = results.drop_duplicates(subset=['question', 'axis'])
 
-        results.to_csv(f"{args.save_dir}/{save_str}/{tag}-results.csv", index=False)
-        selected_cols = ['question', 'answer_a', 'answer_b', 'response', 'axis_description', 'parent_axis', 'score_a_score', 'score_b_score', 'final_score', 'score_a_reasoning','score_b_reasoning']
-        result_plot_table = wandb.Table(dataframe=results[selected_cols])
-        score_distribution_a = [(i, len(results[results['score_a_score'] == i])) for i in range(-2, 3)]
-        score_distribution_b = [(i, len(results[results['score_b_score'] == i])) for i in range(-2, 3)]
-        score_distribution_a = wandb.Table(data=score_distribution_a, columns=["score", "count"])
-        score_distribution_b = wandb.Table(data=score_distribution_b, columns=["score", "count"])
-        score_distribution = wandb.Table(data=[(i, len(results[results['final_score'] == i])) for i in range(-4,5)],  columns=["score", "count"])
-        
-        wandb.log({"summary_results": wandb.Table(dataframe=summary_results), 
-                   "results": result_plot_table, 
+        wandb.log({"summary_results": wandb.Table(dataframe=results), 
                    "scoring_logs": wandb.Table(dataframe=scoring_logs),
                    "metrics": metrics,
-                   "all_parent_axes": wandb.Table(dataframe=results['parent_axis'].value_counts().reset_index()),
-                   "score_a_value_counts: ": wandb.plot.bar(score_distribution_a, "score", "count", title="Score A Value Counts"),
-                   "score_b_value_counts: ": wandb.plot.bar(score_distribution_b, "score", "count", title="Score A Value Counts"),
-                   "final_score_counts": wandb.plot.bar(score_distribution, "score", "count", title="Final Score Counts"),
                    })
+
+        ######################################
+        ############  test scores  ###########
+        ######################################   
+        # TODO
+        
         wandb.finish()
 
 # make main function

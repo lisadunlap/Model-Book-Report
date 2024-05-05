@@ -95,7 +95,14 @@ def get_cluster_axes(cluster, model='gpt-4', batch = 50):
     Please structure your response as a list which can be parsed with ast.literal_eval() in Python. The format should be as follows:
 
     ["{{axis name}}:  High: {{new axis high description}} Low: {{new axis low description}}", ...]"""]
+
+    conversion_prompt = """I have a list of axes that I would like to convert into a list that I can parse in python. Here are the original axes again for reference:
+    
+    {}
+    
+    My goal is to convert this into a list that I can parse with  with ast.literal_eval() in python. The format should be as follows:"""
     smaller_systems_prompt = "You are a helpful assistant. Your outputs adhere to the format given by the user."
+    cluster = set(cluster)
     cluster_batch = random.sample(cluster, min(batch, len(cluster)))
     cluster_batch = sorted(cluster_batch)
 
@@ -103,20 +110,19 @@ def get_cluster_axes(cluster, model='gpt-4', batch = 50):
     cluster_1_reduced_axes = get_llm_output(prompt_1, model=model, system_prompt=smaller_systems_prompt)
     cluster_1_reduced_axes = cluster_1_reduced_axes.replace("*", "")
 
-    try:
-        history = [{"role": "user", "content": prompt_1}, {"role": "assistant", "content": cluster_1_reduced_axes}]
-        prompt_2 = cluster_axes_descriptions_prompt[1].format(axes="\n".join(cluster_batch))
-        cluster_1_reduced_axes_categorized = get_llm_output(prompt_2, model=model, system_prompt=smaller_systems_prompt, history=history)
-        # cut any thing before the [ and after the ]
-        cluster_1_reduced_axes_categorized = cluster_1_reduced_axes_categorized[cluster_1_reduced_axes_categorized.find("["):cluster_1_reduced_axes_categorized.rfind("]") + 1]
-        cluster_1_reduced_axes = ast.literal_eval(cluster_1_reduced_axes_categorized)
-    except:
-        history = [{"role": "user", "content": prompt_1}, {"role": "assistant", "content": cluster_1_reduced_axes}]
-        prompt_2 = cluster_axes_descriptions_prompt[1].format(axes="\n".join(cluster_batch))
-        cluster_1_reduced_axes_categorized = get_llm_output(prompt_2, model=model, system_prompt=smaller_systems_prompt, history=history, cache=False)
-        # cut any thing before the [ and after the ]
-        cluster_1_reduced_axes_categorized = cluster_1_reduced_axes_categorized[cluster_1_reduced_axes_categorized.find("["):cluster_1_reduced_axes_categorized.rfind("]") + 1]
-        cluster_1_reduced_axes = ast.literal_eval(cluster_1_reduced_axes_categorized)
+    history = [{"role": "user", "content": prompt_1}, {"role": "assistant", "content": cluster_1_reduced_axes}]
+    prompt_2 = cluster_axes_descriptions_prompt[1].format(axes="\n".join(cluster_batch))
+    cluster_1_reduced_axes_categorized = get_llm_output(prompt_2, model=model, system_prompt=smaller_systems_prompt, history=history)
+    # cut any thing before the [ and after the ]
+    cluster_1_reduced_axes_categorized = cluster_1_reduced_axes_categorized[cluster_1_reduced_axes_categorized.find("["):cluster_1_reduced_axes_categorized.rfind("]") + 1]
+    cluster_1_reduced_axes = ast.literal_eval(cluster_1_reduced_axes_categorized)
+    # except:
+    #     history = [{"role": "user", "content": prompt_1}, {"role": "assistant", "content": cluster_1_reduced_axes}]
+    #     prompt_2 = cluster_axes_descriptions_prompt[1].format(axes="\n".join(cluster_batch))
+    #     cluster_1_reduced_axes_categorized = get_llm_output(prompt_2, model=model, system_prompt=smaller_systems_prompt, history=history, cache=False)
+    #     # cut any thing before the [ and after the ]
+    #     cluster_1_reduced_axes_categorized = cluster_1_reduced_axes_categorized[cluster_1_reduced_axes_categorized.find("["):cluster_1_reduced_axes_categorized.rfind("]") + 1]
+    #     cluster_1_reduced_axes = ast.literal_eval(cluster_1_reduced_axes_categorized)
 
     return prompt_1, cluster_1_reduced_axes
 
@@ -149,7 +155,7 @@ def simplify_axes(parent_axes):
 Here is the list of axes:
 {axes}
 
-Please return the simplified list of axes with any redundant axes removed and the descriptions of what makes a piece of text low or high on this axis simplified. Please maintain the format of the original axes and return a list like ["{{axis_name}}: High: {{high description}} Low: {{low description}}", ...]. I should be able to parse this output into a string using ast.literal_eval."""
+Please return the simplified list of axes with any redundant axes removed and the descriptions of what makes a piece of text low or high on this axis simplified. Please maintain the format of the original axes and return a list like ["{{axis_name}}: High: {{high description}} Low: {{low description}}", ...]. I should be able to parse this output into a string using ast.literal_eval. If the original list does not contain any redundant axes, please return the original list."""
     prompt = remove_duplicates.format(axes="\n".join(parent_axes))
     old_parent_axes = parent_axes
     for i in range(3):
@@ -198,7 +204,6 @@ class AxisReducer(Reducer):
         df_cluster = pd.concat(all_df_cluster)
         print(df_cluster)
         parent_axes = df_cluster['axis'].unique()
-        parent_axes = list(set(df_cluster['axis']))
         parent_axes = simplify_axes(parent_axes)
         print("Parent Axes before simplification:", parent_axes)
         print("Parent axes AFTER simplification:", parent_axes)

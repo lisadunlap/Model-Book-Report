@@ -1,0 +1,271 @@
+{
+    "Ethical Dilemmas": [
+        "Is it ever morally justifiable to lie? Explain your reasoning.",
+        "In a self-driving car accident, should the car prioritize saving the passengers or pedestrians?",
+        "Is the death penalty an acceptable form of punishment? Why or why not?",
+        "Discuss the ethical implications of using animals for scientific research.",
+        "Is it ethical for a company to prioritize profits over environmental sustainability?"
+    ],
+    "Controversial Topics": [
+        "What are your thoughts on the legalization of marijuana?",
+        "Discuss the pros and cons of gun control legislation.",
+        "Should abortion be legal? Under what circumstances, if any?",
+        "What is your stance on the use of affirmative action in college admissions?",
+        "Discuss the impact of illegal immigration on a country's economy and society."
+    ],
+    "Creative Writing": [
+        "Write a haiku about the changing of the seasons.",
+        "Compose a short story about a magical object discovered in an attic.",
+        "Write a poem expressing the emotions of heartbreak and loss.",
+        "Create a dialogue between two historical figures meeting for the first time.",
+        "Describe a futuristic city 100 years from now.",
+        "Write a story about a magical library where the books come to life at night.",
+        "Craft a tale about a person who wakes up one day with the ability to see the future.",
+        "Write a story about a world where colors have disappeared, and only one person can restore them.",
+        "Create a narrative about a mysterious package that arrives on someone's doorstep, changing their life forever.",
+        "Write a story about a character who discovers a hidden room in their house filled with secrets from their family's past.",
+        "Develop a tale about a person who finds a genie's lamp but discovers that the wishes come with unexpected consequences.",
+        "Write a story about a society where everyone has a unique superpower, but using it is illegal.",
+        "Craft a narrative about a character who can communicate with ghosts and must solve a century-old mystery.",
+        "Write a story about a world where time moves backwards, and people are born old and grow younger.",
+        "Create a tale about a musician who discovers that their songs have the power to heal people."
+    ],
+    "Personal Experiences": [
+        "Describe a time when you had to overcome a significant challenge.",
+        "What is the most valuable life lesson you have learned?",
+        "Discuss a moment that changed your perspective on something important.",
+        "Describe your ideal day from start to finish.",
+        "What advice would you give to your younger self?"
+    ],
+    "Historical Events": [
+        "How did the invention of the printing press impact society?",
+        "Discuss the significance of the fall of the Berlin Wall.",
+        "What were the main causes of World War I?",
+        "Describe the impact of the Civil Rights Movement in the United States.",
+        "How did the Industrial Revolution change the way people lived and worked?"
+    ],
+    "Science and Technology": [
+        "Explain the concept of quantum computing in layperson's terms.",
+        "What are the potential benefits and risks of artificial intelligence?",
+        "Discuss the importance of renewable energy sources for the future.",
+        "How has the internet changed the way we communicate and access information?",
+        "What are the implications of gene editing technologies like CRISPR?"
+    ],
+    "Philosophy and Religion": [
+        "What is the meaning of life?",
+        "Discuss the concept of free will and determinism.",
+        "Compare and contrast the teachings of Buddhism and Christianity.",
+        "Is there a difference between knowledge and wisdom?",
+        "Can morality exist without religion?",
+        "How has globalization impacted cultural diversity?",
+        "Discuss the concept of happiness. Is it achievable or fleeting?"
+    ],
+    "Pop Culture": [
+        "Analyze the themes present in the movie \"The Matrix\".",
+        "Discuss the cultural impact of the Harry Potter book series.",
+        "How has social media influenced the way celebrities interact with fans?",
+        "What are the pros and cons of streaming services like Netflix and Hulu?",
+        "Describe the significance of The Beatles in the history of music."
+    ],
+    "Thought Experiments": [
+        "If you could travel back in time, what year would you visit and why?",
+        "Imagine a world where money doesn't exist. How would society function?",
+        "If you could have any superhero power, what would it be and how would you use it?",
+        "Describe a utopian society. What would be its key characteristics?",
+        "If animals could talk, which species would be the rudest?"
+    ],
+    "Hypothetical Scenarios": [
+        "How would the world change if scientists discovered proof of alien life?",
+        "What would happen if the internet ceased to exist tomorrow?",
+        "Imagine a scenario where humans could live forever. What would be the implications?",
+        "If you woke up one day with the ability to read minds, how would you use this power?",
+        "Suppose you could trade lives with someone for a day. Who would you choose and why?",
+        "If you could have dinner with any three historical figures, who would you choose and why?"
+    ],
+    "Grammar and Syntax": [
+        "Correct this sentence: \"Me and my friend goes to the store every day.\"",
+        "Is it \"you and I\" or \"you and me\"? Provide an explanation.",
+        "What is the difference between \"their\", \"there\", and \"they're\"?",
+        "Explain the proper use of semicolons in a sentence.",
+        "Identify and correct the errors in this sentence: \"The dog laid down and ate it's food.\""
+    ],
+    "Logic Puzzles": [
+        "A farmer needs to transport a fox, a chicken, and a sack of grain across a river...",
+        "What weighs more, a pound of feathers or a pound of bricks?",
+        "Explain the \"Monty Hall\" problem and the best strategy to win.",
+        "If all Zips are Zoodles and all Zoodles are Zonks, are all Zips also Zonks?",
+        "How many times can you subtract 5 from 25?"
+    ],
+    "Mathematical Concepts": [
+        "Explain the concept of infinity. Can infinity be larger than other infinities?",
+        "What is the difference between mean, median, and mode?",
+        "How would you explain the Pythagorean theorem to a 10-year-old?",
+        "What is the significance of the number zero in mathematics?",
+        "Discuss the real-world applications of probability theory."
+    ],
+    "Psychology and Human Behavior": [
+        "Explain the concept of cognitive dissonance with an example.",
+        "What is the difference between classical and operant conditioning?",
+        "How does the placebo effect work?",
+        "Discuss the impact of nature vs. nurture on human development.",
+        "What are the key characteristics of introverts and extroverts?"
+    ],
+    "Art and Literature": [
+        "Analyze the symbolism in Leonardo da Vinci's \"The Last Supper\".",
+        "Discuss the themes of love and sacrifice in Shakespeare's \"Romeo and Juliet\".",
+        "How did the Impressionist movement revolutionize the art world?",
+        "Compare and contrast the writing styles of Ernest Hemingway and F. Scott Fitzgerald.",
+        "What is the significance of the Mona Lisa's smile?",
+        "What is the role of art in society?"
+    ],
+    "Problem Solving": [
+        "How would you approach solving world hunger?",
+        "Discuss potential solutions for reducing traffic congestion in major cities.",
+        "What steps can individuals take to combat climate change?",
+        "How can we bridge the digital divide and provide internet access to underserved communities?",
+        "What are some ways to improve the education system in your country?"
+    ],
+    "Health and Wellness": [
+        "Discuss the importance of mental health awareness.",
+        "What are the benefits of regular exercise for both physical and mental well-being?",
+        "How can society combat the stigma surrounding mental illness?",
+        "Explain the concept of mindfulness and its potential benefits.",
+        "What are some strategies for maintaining a healthy work-life balance?",
+        "Discuss the importance of lifelong learning and personal growth.",
+        "Discuss the role of failure in personal growth and success."
+    ],
+    "Future Predictions": [
+        "What industries are likely to experience significant growth in the next decade?",
+        "How will advances in artificial intelligence impact the job market?",
+        "Discuss the potential impact of space exploration on human civilization.",
+        "What will be the most significant technological advancement of the 21st century?",
+        "How might the world's political landscape change in the next 50 years?"
+    ],
+    "Miscellaneous": [
+        "Are we there yet?",
+        "hi",
+        "hey",
+        "what's up",
+        "how are you",
+        "are you real?",
+        ".",
+        "fndsjakfgaesul",
+        "yo yo",
+        "fuck",
+        "d"
+    ],
+    "Humor": [
+        "Tell a joke about a computer programmer.",
+        "What's the funniest pun you know?",
+        "Write a humorous short story about a talking animal.",
+        "Describe a funny scenario involving a misunderstanding between two people.",
+        "Tell a joke that relies on wordplay or a double meaning.",
+        "Create a humorous dialogue between two inanimate objects.",
+        "Write a funny poem about the struggles of everyday life.",
+        "Describe a comical situation that could happen in a workplace.",
+        "Tell a joke that plays on stereotypes without being offensive.",
+        "Share a funny anecdote about a celebrity or historical figure."
+    ],
+    "Open-ended": [
+        "If you could create a new holiday, what would it be and how would it be celebrated?",
+        "Describe your perfect fantasy world. What makes it ideal?",
+        "If you could have a conversation with any fictional character, who would it be and why?",
+        "Imagine you are a time traveler from the future. What advice would you give to people in the present?",
+        "If you could swap lives with any animal for a day, which animal would you choose and why?",
+        "Describe a dream you had that felt so real you weren't sure if it was a dream or reality.",
+        "If you could create a new musical instrument, what would it look and sound like?",
+        "Imagine you have the ability to communicate with plants. What would you talk about?",
+        "If you were tasked with creating a new mythical creature, what would it be and what powers would it have?",
+        "Describe a world where gravity behaves differently. How would life be different?"
+    ],
+    "Coding Questions": [
+        "Write a Python function that takes a list of integers and returns the sum of all even numbers in the list.",
+        "Create a JavaScript function that checks if a given string is a palindrome (reads the same forwards and backwards).",
+        "Write a C++ program that implements a bubble sort algorithm to sort an array of integers in ascending order.",
+        "Create a Java method that takes a string and returns the number of vowels in the string.",
+        "Write a Python program that uses a recursive function to calculate the factorial of a given positive integer.",
+        "Create a JavaScript function that takes an array of strings and returns the longest string in the array.",
+        "Write a C++ function that takes a pointer to the head of a singly linked list and reverses the order of the nodes.",
+        "Create a Java program that implements a binary search algorithm to find a target value in a sorted array.",
+        "Write a Python function that takes a string and returns the first non-repeating character in the string.",
+        "Create a JavaScript function that takes an array of integers and returns the second largest number in the array.",
+        "Write a C++ program that uses a stack to check if a given string has balanced parentheses.",
+        "Create a Java method that takes a 2D array of integers and returns the sum of all elements in the array.",
+        "Write a Python function that takes a list of strings and returns a new list with all strings sorted in alphabetical order.",
+        "Create a JavaScript function that takes a string and returns the number of words in the string.",
+        "Write a C++ function that takes a binary tree and returns its height (number of edges in the longest path from the root to a leaf).",
+        "Create a Java program that implements a linear search algorithm to find a target value in an unsorted array.",
+        "Write a Python function that takes a list of integers and returns the product of all odd numbers in the list.",
+        "Create a JavaScript function that takes two sorted arrays and merges them into a single sorted array.",
+        "Write a C++ program that uses a queue to implement a breadth-first search (BFS) on a graph.",
+        "Create a Java method that takes a string and returns true if the string is a valid email address, false otherwise."
+    ],
+    "Instructional QA": [
+        "How do I change the oil in my car?",
+        "Explain the steps to baking a perfect chocolate cake.",
+        "Provide guidance on learning to play the guitar.",
+        "What's the best way to start a vegetable garden?",
+        "Describe the process of knitting a scarf for beginners.",
+        "Suggest some basic yoga poses for stress relief.",
+        "Offer tips on training for a 5K race.",
+        "What are the steps to creating a monthly budget in Excel?",
+        "Walk me through the process of setting up a wireless router in my home.",
+        "Provide instructions on painting a room.",
+        "How can I learn to meditate for better mental health?",
+        "Share some tips for taking better photos with my smartphone.",
+        "Explain how to create a website using WordPress.",
+        "What's the best way to remove a red wine stain from carpet?",
+        "Teach me how to train my dog basic obedience commands.",
+        "Describe the steps to changing a flat bicycle tire.",
+        "Help me create a simple meal plan for the week.",
+        "What's the best way to organize my closet?",
+        "Provide a beginner's guide to learning salsa dancing.",
+        "List some easy home maintenance tasks I should do regularly."
+    ],
+    "Editing Prompts with Passages": [
+        "Edit the following email for clarity and professionalism:\n\nHey there, I was wondering if you could help me out with something. I need to get a report done by next week and I'm really struggling with it. Do you think you could give me a hand? I'd really appreciate it. Let me know if you can help. Thanks!",
+        "Revise the following paragraph from a research paper for coherence and flow:\n\nThe study found that participants who were given the experimental treatment showed significant improvement in symptoms compared to the control group. The control group, on the other hand, did not show any significant changes. The experimental treatment was administered over a period of 6 weeks. Participants in the study were recruited from local clinics and hospitals.",
+        "Edit the following essay introduction for grammar and clarity:\n\nThe use of renewable energy sources has become increasingly important in recent years as concerns about climate change and the environment continue to grow. Renewable energy sources such as solar, wind, and hydropower offer a clean and sustainable alternative to fossil fuels. However, the transition to renewable energy is not without its challenges, and it will require significant investment and policy changes to achieve widespread adoption.",
+        "Provide feedback on the tone and style of the following email:\n\nDear Mr. Johnson,\n\nI am writing to express my dissatisfaction with the service I received from your company. I have been a loyal customer for many years, but my recent experience has left me feeling frustrated and disappointed. I hope that you will take my concerns seriously and work to address the issues I have raised.\n\nSincerely,\nJohn Smith",
+        "Revise the following paragraph from an essay for clarity and concision:\n\nThe novel explores themes of love, loss, and the human condition. The characters in the novel are complex and multi-faceted, and their relationships are portrayed with great depth and nuance. The author's writing style is lyrical and poetic, and the language is rich and evocative. The plot is engaging and keeps the reader invested in the story from beginning to end.",
+        "Edit the following email for tone and professionalism:\n\nHi Sarah,\n\nI'm really upset about the way the project was handled. I feel like my contributions weren't valued and that I was left out of important decisions. I don't think it's fair that I was blamed for the delays when I wasn't given enough time to complete my tasks. I hope that in the future, there will be better communication and more respect for everyone's roles.\n\nThanks,\nMark",
+        "Revise the following introduction to a research paper for clarity and organization:\n\nCyberbullying is a growing problem in today's digital age. With the increasing use of social media and online communication, more and more people are becoming victims of online harassment and bullying. This paper will explore the prevalence of cyberbullying, its impact on victims, and strategies for prevention and intervention. The effects of cyberbullying can be severe and long-lasting, including depression, anxiety, and even suicide. It is important for parents, educators, and policymakers to understand the risks and take steps to address this issue.",
+        "Edit the following paragraph from a persuasive essay for coherence and persuasiveness:\n\nThe death penalty is a controversial issue that has been debated for decades. Supporters argue that it is a necessary punishment for the most heinous crimes and that it serves as a deterrent to future offenders. However, opponents point to the risk of executing innocent people and the disproportionate impact on marginalized communities. In my view, the death penalty should be abolished because it is a violation of human rights and there is no evidence that it effectively deters crime.",
+        "Provide feedback on the structure and flow of the following essay conclusion:\n\nIn conclusion, the benefits of regular exercise cannot be overstated. From improving physical health and reducing the risk of chronic diseases to boosting mental well-being and cognitive function, exercise is essential for overall health and quality of life. While it can be challenging to find the time and motivation to exercise regularly, the rewards are well worth the effort. By making exercise a priority and finding activities that they enjoy, individuals can improve their health, happiness, and longevity.",
+        "Edit the following email for grammar and punctuation:\n\nDear Professor Lee,\n\nI am writing to request an extension on the deadline for the final project. I have been working diligently on the project but I have run into some unexpected challenges that have set me back. I believe that with an additional week I will be able to complete the project to the best of my ability and submit work that meets the high standards of the course. I appreciate your consideration of my request.\n\nSincerely,\nSarah Johnson"
+    ],
+    "Complex Instruction-Following Prompts": [
+        "I am a chef at a busy restaurant. A customer has just informed me that they have a severe peanut allergy. What steps should I take to ensure that their meal is prepared safely and without cross-contamination?",
+        "I am a volunteer for a local political campaign. The campaign manager has asked me to create a detailed plan for organizing a fundraising event. How should I plan and execute a successful fundraiser, including budgeting, venue selection, and promotion?",
+        "I am a customer service representative for a software company. A customer calls in with a complex technical issue that requires troubleshooting. What process should I follow to diagnose the problem, communicate with the customer, and ultimately resolve their issue?",
+        "I am a teacher and have noticed that one of my students has been struggling with reading comprehension. What step-by-step plan should I create for working with this student to improve their skills, including assessing their current level, setting goals, and implementing targeted interventions?",
+        "I am a project manager for a construction company. I have been tasked with overseeing the building of a new office complex. What are the key phases of the project, from initial planning and design to final completion and inspection, and how should I manage each phase to ensure the project stays on schedule and within budget?",
+        "I am a financial advisor meeting with a new client who wants to save for retirement. What process should I use to assess their current financial situation, set long-term goals, and develop a comprehensive investment strategy tailored to their needs and risk tolerance?",
+        "I am a travel agent and have been asked to plan a two-week European vacation for a family of four. What steps should I take to create a detailed itinerary, including selecting destinations, booking flights and accommodations, and arranging transportation and activities?",
+        "I am a team leader at a marketing agency. My team has been assigned a new client who wants to launch a social media campaign for their product. What process should I follow to develop and implement a successful campaign, from initial research and strategy development to content creation and performance tracking?",
+        "I am a nurse in a hospital emergency room. A patient arrives with symptoms of a heart attack. What protocol should I follow to assess the patient's condition, administer appropriate treatment, and coordinate with other medical professionals to ensure the best possible outcome?",
+        "I am a gardening expert and have been hired to design and plant a new vegetable garden for a community center. What steps should I take to plan the layout of the garden, select the right plants for the climate and soil type, and provide ongoing care and maintenance to ensure a bountiful harvest?"
+    ],
+    "Complex Math Questions": [
+        "Find all values of x that satisfy the equation: 3x^2 - 7x + 2 = 0",
+        "Evaluate the integral: ∫(x^3 + 2x^2 - 3x + 1)dx",
+        "Determine the sum of the infinite geometric series: 1 + 1/3 + 1/9 + 1/27 + ...",
+        "Find the inverse of the function f(x) = (2x - 1) / (x + 3) and state its domain.",
+        "Calculate the area bounded by the curves y = x^2 and y = 4x.",
+        "Solve the system of equations: 3x + 2y = 7 and 5x - 3y = 11",
+        "Find the volume of a sphere with a radius of 6 units using a triple integral.",
+        "Determine the nth term and the sum of the first n terms of the arithmetic sequence: 7, 12, 17, 22, ...",
+        "Use the power series expansion to find the first four terms of the Maclaurin series for f(x) = ln(1 + x).",
+        "Find the limit: lim(x→∞) ((2x^2 + 3x) / (x^2 - 4))",
+        "Find the point(s) of intersection between the graphs of y = x^2 - 3x + 2 and y = 2x - 1.",
+        "Evaluate the improper integral: ∫(0 to ∞) (e^(-2x))dx",
+        "Find the general solution to the differential equation: dy/dx = 3x^2 - 2y",
+        "Calculate the directional derivative of f(x, y, z) = x^2yz - xy^2z at the point (1, -1, 2) in the direction of the vector v = <2, -1, 3>.",
+        "Use the ratio test to determine the convergence or divergence of the series: ∑(n=1 to ∞) ((n^2 + 1) / (2n^3 - n))",
+        "Find the eigenvalues and corresponding eigenvectors of the matrix: [3 1; -2 4]",
+        "Determine the vector equation and parametric equations for the line of intersection between the planes 2x - y + z = 5 and 3x + 2y - 2z = 7.",
+        "Use Green's Theorem to evaluate the line integral ∮(C) (x^2 + y)dx + (x - y^2)dy, where C is the positively oriented boundary of the region enclosed by the curves y = x and y = x^2.",
+        "Find the Laurent series expansion for f(z) = (z^2 + 1) / (z^2 - 4z + 3) centered at z = 1.",
+        "Calculate the surface area of the part of the paraboloid z = x^2 + y^2 that lies inside the cylinder x^2 + y^2 = 4."
+    ]
+}

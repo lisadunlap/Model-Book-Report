@@ -1,170 +1,201 @@
-import logging
-from typing import Dict, List, Tuple
-
-import click
 import pandas as pd
-from omegaconf import OmegaConf
+import os
+from PIL import Image
+import json
+
+from serve.utils_llm import get_llm_output, get_llm_embedding
+import ast
+import random
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import wandb 
+import re
 from tqdm import tqdm
+from omegaconf import OmegaConf
 
-import wandb
-from components.evaluator import GPTEvaluator, NullEvaluator
-from components.proposer import (
-    LLMProposer,
-    LLMProposerDiffusion,
-    VLMFeatureProposer,
-    VLMProposer,
-    LLMPairwiseProposerWithQuestion,
-    DualSidedLLMProposer
-)
-from components.ranker import CLIPRanker, LLMRanker, NullRanker, VLMRanker, LLMOnlyRanker, ClusterRanker
+from sentence_transformers import SentenceTransformer
+from sklearn.cluster import DBSCAN, KMeans, AgglomerativeClustering, SpectralClustering
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
 
+from components.proposer_prompts import *
+from components.parsing_utils import *
 
-def load_config(config: str) -> Dict:
-    base_cfg = OmegaConf.load("configs/base.yaml")
-    cfg = OmegaConf.load(config)
-    final_cfg = OmegaConf.merge(base_cfg, cfg)
-    args = OmegaConf.to_container(final_cfg)
-    args["config"] = config
-    if args["wandb"]:
-        wandb.init(
-            project=args["project"],
-            entity="clipinvariance",
-            name=args["data"]["name"],
-            group=f'{args["data"]["group1"]} - {args["data"]["group2"]} ({args["data"]["purity"]})',
-            config=args,
-        )
-    return args
+# from components.proposer import LLMPairwiseProposerWithQuestion
+# from components.reducer import AxisReducer
+import components.ranker as rankers
+import components.proposer as proposers
+import components.reducer as reducers
 
 
-def load_data(args: Dict) -> Tuple[List[Dict], List[Dict], List[str]]:
-    data_args = args["data"]
+import argparse
+def main():
+    # parser = argparse.ArgumentParser(description='Process some integers.')
+    # parser.add_argument('--wandb', action='store_true', help='log to wandb')
+    # parser.add_argument('--project', type=str, default='llm_eval_presentable', help='wandb project name')
+    # parser.add_argument('--num-samples', type=int, help='number of samples to use')
+    # parser.add_argument('--data-path', type=str, help='path to data')
+    # parser.add_argument('--model-a-column', type=str, help='column name for model A')
+    # parser.add_argument('--model-b-column', type=str, help='column name for model B')
+    # parser.add_argument('--k', type=int, help='number of clusters')
+    # parser.add_argument('--batch-size', type=int, help='batch size for LLM')
+    # parser.add_argument('--num-eval', default=3, type=int, help='model to use')
+    # parser.add_argument('--oz', action='store_true', help='use oz prompt')
+    # parser.add_argument('--dummy-eval', action='store_true', help='use dummy eval prompt')
+    # parser.add_argument('--embedding-model', type=str, default='text-embedding-3-small', help='embedding model to use')
+    # parser.add_argument('--seed', default=42, type=int, help='random seed')
+    # parser.add_argument('--group-column', type=str)
+    # parser.add_argument('--cluster-method', type=str, default='hierarchical', help='clustering method')
+    # parser.add_argument('--ranker', type=str, default='LLMOnlyRanker', help='ranker to use')
+    # parser.add_argument('--proposer', type=str, default='LLMBatchProposer', help='proposer to use')
+    # parser.add_argument('--reducer', type=str, default='AxisReducer', help='reducer to use')
+    # parser.add_argument('--proposer-batch-size', type=int, default=10, help='batch of questions to get differences for')
+    # parser.add_argument("--save-dir", type=str, default="pipeline_results", help="directory to save results")
+    # parser.add_argument("--eval-only", action="store_true", help="only run evaluation")
+    # parser.add_argument("--heldout-percentage", type=float, default=0.5, help="percentage of data to holdout")
+    # parser.add_argument("--axes", nargs="+", help="axes to evaluate")
+    # parser.add_argument("--test", action="store_true", help="run test")
+    # args = parser.parse_args()
+    # add in args to override defaults
+    parser = argparse.ArgumentParser(description='CLIP Advice')
+    parser.add_argument('--config', default='configs/multi_llm.yaml', help="config file")
+    parser.add_argument('overrides', nargs='*', help="Any key=value arguments to override config values "
+                                                    "(use dots for.nested=overrides)")
+    # flags = parser.parse_args()
+    flags, unknown = parser.parse_known_args()
 
-    df = pd.read_csv(f"{data_args['root']}/{data_args['name']}.csv")
+    overrides = OmegaConf.from_cli(flags.overrides)
+    cfg       = OmegaConf.load(flags.config)
+    args      = OmegaConf.merge(cfg, overrides)
+    args.yaml = flags.config
 
-    if data_args["subset"]:
-        old_len = len(df)
-        df = df[df["subset"] == data_args["subset"]]
-        print(
-            f"Taking {data_args['subset']} subset (dataset size reduced from {old_len} to {len(df)})"
-        )
+    np.random.seed(args.seed)
+    random.seed(args.seed)
 
-    dataset1 = df[df["group_name"] == data_args["group1"]].to_dict("records")
-    dataset2 = df[df["group_name"] == data_args["group2"]].to_dict("records")
-    group_names = [data_args["group1"], data_args["group2"]]
+    # tirn off wandb logging
+    if not args.wandb:
+        os.environ["WANDB_MODE"] = "dryrun"
+    proj_name = args.project if not args.dummy_eval else f"llm_eval_refactor_debug"
+    proj_name = f"{proj_name}_test" if args.test else proj_name
+    global_df = pd.read_csv(args.data_path)
+    print(f"Models: {args.models}")
+    print(f"Eval Axes: {args.axes}")
+    # remove duplicate question-answer
+    global_df.drop_duplicates(subset=args.models, inplace=True)
 
-    if data_args["purity"] < 1:
-        logging.warning(f"Purity is set to {data_args['purity']}. Swapping groups.")
-        assert len(dataset1) == len(dataset2), "Groups must be of equal size"
-        n_swap = int((1 - data_args["purity"]) * len(dataset1))
-        dataset1 = dataset1[n_swap:] + dataset2[:n_swap]
-        dataset2 = dataset2[n_swap:] + dataset1[:n_swap]
-    return dataset1, dataset2, group_names
+    
 
+    if args.group_column:
+        groups = global_df[args.group_column].unique()
+        print(f"Running VibeCheck on group {args.group_column}({groups})")
+        print(f"Group value counts: {global_df[args.group_column].value_counts()}")
+    else:
+        groups = ["all"]
 
-def propose(args: Dict, dataset1: List[Dict], dataset2: List[Dict]) -> List[str]:
-    proposer_args = args["proposer"]
-    proposer_args["seed"] = args["seed"]
-    proposer_args["captioner"] = args["captioner"]
+    if args.test:
+        groups = groups[:3]
+    for group in groups:
+        if args.group_column:
+            df = global_df[global_df[args.group_column] == group]
+        else:
+            df = global_df
+        model_group = '-'.join(args.models).replace(' ', '')[:30]
+        wandb.init(project=proj_name, entity="lisadunlap", config=dict(args), group=model_group, name=f"{args.group_column}-{group}")
 
-    proposer = eval(proposer_args["method"])(proposer_args)
-    hypotheses, logs, images = proposer.propose(dataset1, dataset2)
-    print(images)
-    if args["wandb"]:
-        wandb.log({"logs": wandb.Table(dataframe=pd.DataFrame(logs))})
-        wandb.log({"llm_outputs": wandb.Table(dataframe=pd.DataFrame(images))})
-        if images is not None:
-            for i in range(len(images)):
-                wandb.log(
-                    {
-                        f"group 1 images ({dataset1[0]['group_name']})": images[i][
-                            "images_group_1"
-                        ],
-                        f"group 2 images ({dataset2[0]['group_name']})": images[i][
-                            "images_group_2"
-                        ],
-                    }
-                )
-    return hypotheses
+        # create str of datapath for savins
+        num_samples = min(args.num_samples, df.shape[0]) if args.num_samples else df.shape[0]
+        save_str = args.data_path.split("/")[-1].split(".")[0] + f"_{group}"
+        tag = f"{model_group}_k{args.k}_seed{args.seed}" if not args.num_samples else f"{model_group}_{args.k}_samples{num_samples}_seed{args.seed}"
+        tag = f"{tag}_oz" if args.oz else tag
+        tag = f"{tag}_dummy_eval" if args.dummy_eval else tag
+        if not os.path.exists(f"{args.save_dir}/{save_str}"):
+            os.makedirs(f"{args.save_dir}/{save_str}")
 
+        # randomly sample 10 rows, set random seed for reproducibility
+        if args.num_samples:
+            df = df.sample(num_samples, random_state=args.seed)
 
-def rank(
-    args: Dict,
-    hypotheses: List[str],
-    dataset1: List[Dict],
-    dataset2: List[Dict],
-    group_names: List[str],
-) -> List[str]:
-    ranker_args = args["ranker"]
-    ranker_args["seed"] = args["seed"]
+        # nonsense_names = [
+        # "Blorptex", "Qwinku", "Flumzog", "Veptinar", "Juxlimp",
+        # "Sproonch", "Gribwol", "Ploxinor", "Vlurnip", "Snudlewock",
+        # "Zemfrip", "Clorxib", "Dwibzut", "Jinktor", "Vemplic",
+        # "Glozwurk", "Friptal", "Qwembix", "Hulmop", "Zurkwin"]
+        # args.models = args.models[:len(nonsense_names)]
+        # for i, model in enumerate(args.models):
+        #     wandb.summary[model] = nonsense_names[i]
+        df = df[['question', *args.models]]
+        heldout_len = int(df.shape[0] * args.heldout_percentage)
+        heldout_df = df.sample(heldout_len, random_state=args.seed)
+        df = df.drop(heldout_df.index)
 
-    ranker = eval(ranker_args["method"])(ranker_args)
-
-    scored_hypotheses = ranker.rerank_hypotheses(hypotheses, dataset1, dataset2)
-    # if args["wandb"]:
-    #     table_hypotheses = wandb.Table(dataframe=pd.DataFrame(scored_hypotheses))
-    #     wandb.log({"scored hypotheses": table_hypotheses})
-    #     for i in range(5):
-    #         wandb.summary[f"top_{i + 1}_difference"] = scored_hypotheses[i][
-    #             "hypothesis"
-    #         ].replace('"', "")
-    #         wandb.summary[f"top_{i + 1}_score"] = scored_hypotheses[i]["auroc"]
-
-    if args["evaluator"]["method"] != "NullEvaluator":
-        scored_groundtruth = ranker.rerank_hypotheses(
-            group_names,
-            dataset1,
-            dataset2,
-        )
-        if args["wandb"]:
-            table_groundtruth = wandb.Table(dataframe=pd.DataFrame(scored_groundtruth))
-            wandb.log({"scored groundtruth": table_groundtruth})
-
-    return [hypothesis["hypothesis"] for hypothesis in scored_hypotheses]
-
-
-def evaluate(args: Dict, ranked_hypotheses: List[str], group_names: List[str]) -> Dict:
-    evaluator_args = args["evaluator"]
-
-    evaluator = eval(evaluator_args["method"])(evaluator_args)
-
-    metrics, evaluated_hypotheses = evaluator.evaluate(
-        ranked_hypotheses,
-        group_names[0],
-        group_names[1],
-    )
-
-    if args["wandb"] and evaluator_args["method"] != "NullEvaluator":
-        table_evaluated_hypotheses = wandb.Table(
-            dataframe=pd.DataFrame(evaluated_hypotheses)
-        )
-        wandb.log({"evaluated hypotheses": table_evaluated_hypotheses})
-        wandb.log(metrics)
-    return metrics
-
-
-@click.command()
-@click.option("--config", help="config file")
-def main(config):
-    logging.info("Loading config...")
-    args = load_config(config)
-    # print(args)
-
-    logging.info("Loading data...")
-    dataset1, dataset2, group_names = load_data(args)
-    # print(dataset1, dataset2, group_names)
-
-    logging.info("Proposing hypotheses...")
-    hypotheses = propose(args, dataset1, dataset2)
-    # print(hypotheses)
-
-    logging.info("Ranking hypotheses...")
-    ranked_hypotheses = rank(args, hypotheses, dataset1, dataset2, group_names)
-    # print(ranked_hypotheses)
-
-    logging.info("Evaluating hypotheses...")
-    metrics = evaluate(args, ranked_hypotheses, group_names)
-    # print(metrics)
+        print(f"Running a VibeCheck on {df.shape[0]} samples")
+        if args.eval_only:
+            print(f"Running eval only on {heldout_df.shape[0]} samples")
+        elif args.axes:
+            print(f"Running eval on {len(args.axes)} axes : {args.axes}")
+        else:
+            # ######################################
+            # #### get per question differences ####
+            # ######################################
+            # proposer = LLMPairwiseProposerWithQuestion(args)
+            proposer = getattr(proposers, args.proposer)(args)
+            all_axis_descriptions, llm_logs, pairwise_differences, results = proposer.propose(df)
+            wandb.log({"per_sample_differences": wandb.Table(dataframe=results), "pairwise_diff_llm_logs": wandb.Table(dataframe=llm_logs)})
 
 
+            ######################################
+            #### cluster per question axes    ####
+            ######################################
+            all_axis_descriptions = list(results['axis_description'])
+            all_axis_descriptions = [x.replace("*", "") for x in all_axis_descriptions]
+
+            # reducer = AxisReducer(args)
+            reducer = getattr(reducers, args.reducer)(args)
+            parent_axes, child_parent_map, tables = reducer.reduce(all_axis_descriptions)
+            print("Len child parent", len(child_parent_map), len(results))
+            results['parent_axis'] = child_parent_map
+            wandb.log({k: wandb.Table(dataframe=v) for k, v in tables.items()})
+            # results['parent_axis_deets'] = results['parent_axis'].apply(parse_high_low) # returns {"parent_axis_name": "error", "parent_high": "error", "parent_low": "error"}
+            results.to_csv(f"{args.save_dir}/{save_str}/{tag}-results.csv", index=False)
+            eval_axes = results['parent_axis'].value_counts()[:args.num_eval].index.tolist()
+
+        ######################################
+        ############  score axes  ############
+        ######################################
+        # load if eval only
+        if args.eval_only:
+            if not os.path.exists(f"{args.save_dir}/{save_str}/{tag}-results.csv"):
+                raise ValueError(f"Results file not found at {args.save_dir}/{save_str}/{tag}-results.csv")
+            print(f"Loading {args.save_dir}/{save_str}/{tag}-results.csv...")
+            results = pd.read_csv(f"{args.save_dir}/{save_str}/{tag}-results.csv")
+
+            print(results.columns)
+            eval_axes = results['parent_axis'].value_counts()[:args.num_eval].index.tolist()
+            print(f"\n\n{results['parent_axis'].value_counts()}\n{eval_axes}\n\n")
+            results.to_csv(f"{args.save_dir}/{save_str}/{tag}-eval-results.csv", index=False)
+            metrics.to_csv(f"{args.save_dir}/{save_str}/{tag}-eval-metrics.csv", index=False)
+        elif args.axes:
+            eval_axes = args.axes
+
+        # evaluator = LLMOnlyRanker(args)
+        evaluator = getattr(rankers, args.ranker)(args)
+        metrics, results, scoring_logs = evaluator.score(eval_axes, heldout_df.to_dict("records"))
+        results.to_csv(f"{args.save_dir}/{save_str}/{tag}-eval-results.csv", index=False)
+        results = results.drop_duplicates(subset=['question', 'axis'])
+
+        wandb.log({"summary_results": wandb.Table(dataframe=results), 
+                   "scoring_logs": wandb.Table(dataframe=scoring_logs),
+                   "metrics": metrics,
+                   })
+
+        ######################################
+        ############  test scores  ###########
+        ######################################   
+        # TODO
+        
+        wandb.finish()
+
+# make main function
 if __name__ == "__main__":
     main()

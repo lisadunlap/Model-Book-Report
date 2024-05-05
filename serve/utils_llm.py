@@ -11,7 +11,7 @@ import anthropic
 import datetime
 from wandb.sdk.data_types.trace_tree import Trace
 
-from serve.global_vars import LLM_CACHE_FILE, VICUNA_URL, LLM_EMBED_CACHE_FILE, OPENAI_API_KEY, ANTHROPIC_API_KEY
+from serve.global_vars import LLM_CACHE_FILE, VICUNA_URL, LLM_EMBED_CACHE_FILE, OPENAI_API_KEY, ANTHROPIC_API_KEY, LLAMA_URL
 from serve.utils_general import get_from_cache, save_to_cache, save_emb_to_cache, get_emb_from_cache
 
 logging.basicConfig(level=logging.ERROR)
@@ -120,11 +120,9 @@ def get_llm_embedding(prompt: str, model: str) -> str:
     cached_value = get_emb_from_cache(key, llm_embed_cache)
 
     if cached_value is not None:
-        print("LLM Cache Hit")
         logging.debug(f"LLM Cache Hit")
         return cached_value
     else:
-        print("LLM Cache Miss")
         logging.debug(f"LLM Cache Miss")
 
     for _ in range(3):
