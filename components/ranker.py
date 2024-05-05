@@ -552,7 +552,7 @@ class MuliRubricRankerJury(RubricRankerJury):
         super().__init__(args)
         random.seed(args.seed)
         self.diff_proposer = LLMProposer(args)
-        self.num_judges = 3
+        self.num_judges = len(self.args.judges)
 
     def get_score(self, row, axis, rubric, dummy_eval=False):
         if dummy_eval:
@@ -595,7 +595,7 @@ class MuliRubricRankerJury(RubricRankerJury):
         judge_systems_prompt = "You are a fair and objective judge of model outputs. Your evaluations are clear, concise, and free from exaggerative language. You strictly adhere to the format and guidelines provided by the user, ensuring each decision is well-supported by the evidence within the outputs themselves."
         unbiased_judge = "You are a judge who prioritizes impartiality and objectivity in evaluations. Your focus is on removing personal bias and ensuring that each output is judged solely based on its adherence to the rubric. You critically assess each output, ensuring that your scoring is guided strictly by the criteria outlined, without influence from external factors."
         judge_outputs = []
-        for judge in ["gpt-3.5-turbo", "claude-3-haiku-20240307", "llama-3-8b"]:
+        for judge in self.args.judges:
             for system_prompt in [judge_systems_prompt]:
                 model_outputs = []
                 for model in self.args.models:
