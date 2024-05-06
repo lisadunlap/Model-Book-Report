@@ -31,32 +31,6 @@ import components.reducer as reducers
 
 import argparse
 def main():
-    # parser = argparse.ArgumentParser(description='Process some integers.')
-    # parser.add_argument('--wandb', action='store_true', help='log to wandb')
-    # parser.add_argument('--project', type=str, default='llm_eval_presentable', help='wandb project name')
-    # parser.add_argument('--num-samples', type=int, help='number of samples to use')
-    # parser.add_argument('--data-path', type=str, help='path to data')
-    # parser.add_argument('--model-a-column', type=str, help='column name for model A')
-    # parser.add_argument('--model-b-column', type=str, help='column name for model B')
-    # parser.add_argument('--k', type=int, help='number of clusters')
-    # parser.add_argument('--batch-size', type=int, help='batch size for LLM')
-    # parser.add_argument('--num-eval', default=3, type=int, help='model to use')
-    # parser.add_argument('--oz', action='store_true', help='use oz prompt')
-    # parser.add_argument('--dummy-eval', action='store_true', help='use dummy eval prompt')
-    # parser.add_argument('--embedding-model', type=str, default='text-embedding-3-small', help='embedding model to use')
-    # parser.add_argument('--seed', default=42, type=int, help='random seed')
-    # parser.add_argument('--group-column', type=str)
-    # parser.add_argument('--cluster-method', type=str, default='hierarchical', help='clustering method')
-    # parser.add_argument('--ranker', type=str, default='LLMOnlyRanker', help='ranker to use')
-    # parser.add_argument('--proposer', type=str, default='LLMBatchProposer', help='proposer to use')
-    # parser.add_argument('--reducer', type=str, default='AxisReducer', help='reducer to use')
-    # parser.add_argument('--proposer-batch-size', type=int, default=10, help='batch of questions to get differences for')
-    # parser.add_argument("--save-dir", type=str, default="pipeline_results", help="directory to save results")
-    # parser.add_argument("--eval-only", action="store_true", help="only run evaluation")
-    # parser.add_argument("--heldout-percentage", type=float, default=0.5, help="percentage of data to holdout")
-    # parser.add_argument("--axes", nargs="+", help="axes to evaluate")
-    # parser.add_argument("--test", action="store_true", help="run test")
-    # args = parser.parse_args()
     # add in args to override defaults
     parser = argparse.ArgumentParser(description='CLIP Advice')
     parser.add_argument('--config', default='configs/multi_llm.yaml', help="config file")
@@ -100,7 +74,10 @@ def main():
             df = global_df[global_df[args.group_column] == group]
         else:
             df = global_df
-        model_group = '-'.join(args.models).replace(' ', '')[:30]
+        # model_group = '-'.join(args.models).replace(' ', '')[:30]
+        # get first 3 letters of ech model if length is too long (>50)
+        model_group = '-'.join(args.models).replace(' ', '')
+        model_group = '-'.join([x[:3] for x in args.models]).replace(' ', '') if len(model_group) > 50 else model_group
         wandb.init(project=proj_name, entity="lisadunlap", config=dict(args), group=model_group, name=f"{args.group_column}-{group}")
 
         # create str of datapath for savins
@@ -116,14 +93,6 @@ def main():
         if args.num_samples:
             df = df.sample(num_samples, random_state=args.seed)
 
-        # nonsense_names = [
-        # "Blorptex", "Qwinku", "Flumzog", "Veptinar", "Juxlimp",
-        # "Sproonch", "Gribwol", "Ploxinor", "Vlurnip", "Snudlewock",
-        # "Zemfrip", "Clorxib", "Dwibzut", "Jinktor", "Vemplic",
-        # "Glozwurk", "Friptal", "Qwembix", "Hulmop", "Zurkwin"]
-        # args.models = args.models[:len(nonsense_names)]
-        # for i, model in enumerate(args.models):
-        #     wandb.summary[model] = nonsense_names[i]
         df = df[['question', *args.models]]
         heldout_len = int(df.shape[0] * args.heldout_percentage)
         heldout_df = df.sample(heldout_len, random_state=args.seed)
@@ -182,6 +151,8 @@ def main():
         evaluator = getattr(rankers, args.ranker)(args)
         metrics, results, scoring_logs = evaluator.score(eval_axes, heldout_df.to_dict("records"))
         results.to_csv(f"{args.save_dir}/{save_str}/{tag}-eval-results.csv", index=False)
+        metrics.to_csv(f"{args.save_dir}/{save_str}/{tag}-eval-metrics.csv", index=False)
+        scoring_logs.to_csv(f"{args.save_dir}/{save_str}/{tag}-scoring-logs.csv", index=False)
         results = results.drop_duplicates(subset=['question', 'axis'])
 
         wandb.log({"summary_results": wandb.Table(dataframe=results), 

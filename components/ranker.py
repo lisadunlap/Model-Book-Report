@@ -63,145 +63,6 @@ class NullRanker(Ranker):
     def score_hypothesis(self, hypothesis: str, dataset: List[dict]) -> List[float]:
         return [0.0] * len(dataset)
 
-# LLMDifferenceRanker(Ranker):
-
-
-class LLMOnlyRanker(Ranker):
-    def __init__(self, args: Dict):
-        super().__init__(args)
-        random.seed(args.seed)
-
-    @staticmethod
-    def extract_scores(text):
-        def extract_helper(text):
-            text = text.replace("*", "")
-            # Create a dictionary to hold the results
-            results = {}
-            
-            # Regex patterns to match the scores and reasoning
-            score_pattern = re.compile(r'Model (A|B) Score: (high|low)', re.IGNORECASE)
-            reasoning_pattern = re.compile(r'Reason:\s*({{reasoning}})', re.IGNORECASE)
-
-            # Find all matches for model scores
-            scores = score_pattern.findall(text)
-            for model, score in scores:
-                if model.upper() == 'A':
-                    results["Model A Score"] = score.lower()
-                elif model.upper() == 'B':
-                    results["Model B Score"] = score.lower()
-            try:
-                if 'high' in results["Model A Score"].lower() and 'low' in results["Model B Score"].lower():
-                    return 1
-                elif 'low' in results["Model A Score"].lower() and 'high' in results["Model B Score"].lower():
-                    return -1
-                elif "low" in results["Model A Score"].lower() and "low" in results["Model B Score"].lower():
-                    return 0
-                elif "high" in results["Model A Score"].lower() and "high" in results["Model B Score"].lower():
-                    return 0
-                elif "medium" in results["Model A Score"].lower() and "medium" in results["Model B Score"].lower():
-                    return 0
-                elif "medium" in results["Model A Score"].lower() and "low" in results["Model B Score"].lower():
-                    return 1
-                elif "medium" in results["Model A Score"].lower() and "high" in results["Model B Score"].lower():
-                    return -1
-                else:
-                    raise ValueError(f"No score found\n{text}")
-            except:
-                # print(f"No score found\n{text}")     
-                raise ValueError(f"No score found\n{text}")
-        try:
-            return extract_helper(text)
-        except:
-            print(f"Error extracting scores from text: {text}")
-            print("fixing....")
-            prompt = """I am trying to parse this string but am getting an error. Here is my expected format:
-
-            Reason: {{reasoning}}
-            Model A Score: {{high/medium/low}} # this should only be the word high, medium, or low
-            Model B Score: {{high/medium/low}} # this should only be the word high, medium, or low
-
-            And here is my string:
-            {text}
-
-            Please reformat the string in the above format for me to parse. Please only respond with the scores and reasoning so I can feed this output directly into my string parser."""
-            text = get_llm_output(prompt.format(text=text), model="gpt-3.5-turbo", system_prompt=smaller_systems_prompt)
-            print(f"fixed?\n{text}\n")
-            extracted = extract_helper(text)
-            print(extracted)
-            return extracted
-
-    def ensemble_scores(self, scores):
-        score_1, score_2 = self.extract_scores(scores[0]), self.extract_scores(scores[1])
-        # Utility function to ensemble scores
-        # If they disagree, return 0
-        return (score_1 + -1 * score_2)/2, score_1 == score_2 and score_1 != 0
-
-    @staticmethod
-    def get_score(row, parent_axis, dummy_eval=False):
-        if dummy_eval:
-            return ["Model A Score: high\nModel B Score: low\nReason: Because I said so.", "Model A Score: high\nModel B Score: low\nReason: Because I said so."]
-
-        # Original prompt
-        prompt_a = f"Question:{row['question']}\nModel A: {row['answer_a']}\nModel B: {row['answer_b']}\n"
-        # Swapped prompt
-        prompt_b = f"Question:{row['question']}\nModel A: {row['answer_b']}\nModel B: {row['answer_a']}\n"
-
-        scoring = """I am trying to explain differences in the behavior of two LLM's (A and B) by comparing their outputs over a dataset of question answer tuples. I have of found axes of variation with the meanings of what it means to be low and high on this axis.
-
-        For the following question answer tuple, please score the two models on the following axis of variation found in the dataset. The axis of variation is as follows:
-        {axes}
-
-        Here is the question answer tuple:
-        {question}
-
-        Please score where the two models fall on the above axis. The score for a given model could be ("low", "high").This will help me understand the differences between the two models in a more structured way. Please provide your thought process when scoring the models before providing the score. Please respond in the following format:
-        Reasoning: {{reasoning}}
-        Model A Score: {{high/low}}
-        Model B Score: {{high/low}}
-        """
-
-        # Generate scoring prompts for both orderings
-        scoring_prompt_a = scoring.format(axes=parent_axis, question=prompt_a)
-        scoring_prompt_b = scoring.format(axes=parent_axis, question=prompt_b)
-
-        # Get LLM outputs for both prompts
-        scoring_output_a = get_llm_output(scoring_prompt_a, model="gpt-3.5-turbo", system_prompt=smaller_systems_prompt)
-        scoring_output_b = get_llm_output(scoring_prompt_b, model="gpt-3.5-turbo", system_prompt=smaller_systems_prompt)
-
-        # Ensemble scores and return
-        return [scoring_output_a, scoring_output_b]
-
-    def score_hypothesis(self, hypothesis: str, dataset: List[dict]) -> List[float]:
-        """Given an axis and list of question, answer pairs, score the models on the axis."""
-        assert "question" in dataset[0] and "answer_a" in dataset[0] and "answer_b" in dataset[0], "Dataset must contain 'question', 'answer_a', and 'answer_b' keys."
-        scores = []
-        dataset_scores = []
-        for row in dataset:
-            score = self.get_score(row, hypothesis, dummy_eval=self.args.dummy_eval)
-            if score is not None:
-                row['scores'] = score
-                row["one_sided_score_and_reasoning"] = score[0]
-                row["one_sided_score"] = self.extract_scores(score[0])
-                row["final_score_and_reasoning"] = score
-                ensamble_score, disagree = self.ensemble_scores(score)
-                row["scores_disagree"] = disagree
-                row["final_score"] = ensamble_score
-                row["axis"] = hypothesis
-                scores.append(ensamble_score)
-                dataset_scores.append(row)
-            
-        wandb.summary["percentage_scores_disagree"] = sum([r["scores_disagree"] for r in dataset_scores]) / len(dataset_scores)
-        wandb.summary["percentage_neutral"] = sum([r["final_score"] == 0 for r in dataset_scores if not r["scores_disagree"]]) / len(dataset_scores)
-        return scores, dataset_scores
-    
-    def score(self, axes: List[str], dataset: List[dict]):
-        all_scores, all_dataset_scores = [], []
-        for axis in axes:
-            scores, dataset_scores = self.score_hypothesis(axis, dataset)
-            all_scores.extend(scores)
-            all_dataset_scores.extend(dataset_scores)
-        return all_scores, all_dataset_scores
-
 class RubricRanker(Ranker):
     def __init__(self, args: Dict):
         super().__init__(args)
@@ -263,6 +124,9 @@ class RubricRanker(Ranker):
             score_pattern = re.compile(r'Score: (-?\d)', re.IGNORECASE)
             score = score_pattern.findall(text)
             if "n/a" in score or "N/A" in score:
+                return 0
+            elif int(score[0]) not in [-2, -1, 0, 1, 2]:
+                print(f"Error extracting scores from text: {text}")
                 return 0
             return int(score[0])
         try:
@@ -388,23 +252,14 @@ def fleiss_kappa(M):
 
 def aggregate_scores(scores):
     # given a  num_items x num_judges matrix of scores, aggregate the scores into a single score per item
-    print(f"agg scores {scores}")
     mode_score, count = mode(scores, axis=0)
-    print(mode_score)
     average_score = np.mean(scores, axis=0)
     # round the average score
     # average_score = np.round(average_score)
-    print(f"Average score {average_score}")
     majority_vote = mode_score[0] if mode_score.size > 0 else None  # Handle empty input
-    # Majority Vote
-    # mode_score, count = mode(scores)
-    # majority_vote = mode_score[0] if mode_score.size > 0 else None  # Handle empty input
-    # # median_score = np.median(scores)
-    # average_score = round(np.mean(scores))
 
     return {
         "Majority Vote": majority_vote,
-        # "Median Score": median_score,
         "Average Score, Rounded": np.round(average_score),
         "Average Score": average_score
     }
@@ -413,7 +268,6 @@ def top_high_variance_indices(scores, top_n=5):
     """
     Identify indices with the highest variance in scores across judges.
     """
-    print(scores)
     judges = list(scores.keys())
     scores_matrix = np.array([scores[judge] for judge in judges]).T  # transpose to have judges as columns
     variances = np.var(scores_matrix, axis=1)
@@ -558,34 +412,13 @@ class MuliRubricRankerJury(RubricRankerJury):
         if dummy_eval:
             return ["Reasoning: Because I said so\nScore: 0", "Reasoning: Because I said so\nScore: 0"]
             
-        # prompt = """I would like to score a given prompt-output pair on the following axis of variation: {axis}. Each prompt-output pair will be scored on a scale of -2 to 2 based on the following rubric:
-        # {rubric}
-        
-        # Given the above rubric, please objectively score the following prompt and output:
-        # {prompt}
-        
-        # Please provide your thought process when scoring the prompt and output before providing the score. Please respond in the following format:
-        
-        # Reasoning: {{reasoning}}
-        # Score: {{-2, -1, 0, 1, 2}}"""
-
-        # prompt = """I would like to score a given prompt-output pair on the following axis of variation: {axis}. Each prompt-output pair will be scored on a scale of -2 to 2 based on the following rubric:
-        # {rubric}
-        
-        # Given the above rubric, please objectively score the following output:
-        # {prompt}
-        
-        # Please provide your thought process when scoring the output before providing the score. Please respond in the following format:
-        
-        # Reasoning: {{reasoning}}
-        # Score: {{-2, -1, 0, 1, 2}}"""
         prompt = """I would like you to evaluate a language model's response based on a specific criterion: {axis}. Use the following rubric to assign a score from -2 to 2:
 
         {rubric}
 
         With the rubric in mind, review the provided response to the prompt below:
 
-        Prompt: {prompt}
+        {prompt}
 
         Based on your analysis, please explain your reasoning before assigning a score. Use the following format for your response:
 
@@ -593,16 +426,15 @@ class MuliRubricRankerJury(RubricRankerJury):
         Score: {{choose from: -2, -1, 0, 1, 2}}"""
 
         judge_systems_prompt = "You are a fair and objective judge of model outputs. Your evaluations are clear, concise, and free from exaggerative language. You strictly adhere to the format and guidelines provided by the user, ensuring each decision is well-supported by the evidence within the outputs themselves."
-        unbiased_judge = "You are a judge who prioritizes impartiality and objectivity in evaluations. Your focus is on removing personal bias and ensuring that each output is judged solely based on its adherence to the rubric. You critically assess each output, ensuring that your scoring is guided strictly by the criteria outlined, without influence from external factors."
         judge_outputs = []
         for judge in self.args.judges:
-            for system_prompt in [judge_systems_prompt]:
-                model_outputs = []
-                for model in self.args.models:
-                    scoring_prompt = prompt.format(axis=axis, rubric=rubric, prompt=f"Prompt: {row['question']}\Output: {row[model]}")
-                    output_a = get_llm_output(scoring_prompt, model=judge, system_prompt=system_prompt)
-                    model_outputs.append(output_a)
-                judge_outputs.append(model_outputs)
+            print(f"Getting judgement for Judge = {judge}")
+            model_outputs = []
+            for model in self.args.models:
+                scoring_prompt = prompt.format(axis=axis, rubric=rubric, prompt=f"Prompt: {row['question']}\Output: {row[model]}")
+                output_a = get_llm_output(scoring_prompt, model=judge, system_prompt=judge_systems_prompt)
+                model_outputs.append(output_a)
+            judge_outputs.append(model_outputs)
         return judge_outputs
     
     def score_hypothesis(self, hypothesis: str, dataset: List[dict]) -> List[float]:
@@ -623,33 +455,32 @@ class MuliRubricRankerJury(RubricRankerJury):
                     row[f"Judge_{i}_score"] = [self.extract_scores(s) for s in score]
                     row["axis"] = hypothesis
                     judge_scores[f"Judge_{i}_scores"].append(row[f"Judge_{i}_score"])
-                    dataset_scores.append(row)
             else:
                 print("No scores found")
             row["avg_scores"] = aggregate_scores(np.array([row[f"Judge_{i}_score"] for i in range(self.num_judges)]))["Average Score"]
-            # row["avg_scores"] = [aggregate_scores([row[f"Judge_{i}_score"][0] for i in range(3)])["Majority Vote"], aggregate_scores([row[f"Judge_{i}_score"][1] for i in range(3)])["Majority Vote"]]
             judge_scores["avg_scores"].append(row["avg_scores"])
+            dataset_scores.append(row)
         return judge_scores, dataset_scores, logs
     
     def score(self, axes: List[str], dataset: List[dict]):
         all_dataset_scores, all_logs, axis_metrics = [], [], []
-        example_disagreement = []
+        print(f"axes: {axes}")
         for axis in axes:
+            print(f"Scoring for axis {axis}")
             scores, dataset_scores, logs = self.score_hypothesis(axis, dataset)
-            all_dataset_scores.extend(dataset_scores)
+            all_dataset_scores.append(pd.DataFrame(dataset_scores))
+            print(all_dataset_scores)
             all_logs.append(logs)
             metrics = self.compute_metrics(axis, scores)
-            print(scores)
             axis_metrics.append(metrics)
 
-        return pd.DataFrame(axis_metrics), pd.DataFrame(all_dataset_scores), pd.DataFrame(all_logs)
+        return pd.DataFrame(axis_metrics), pd.concat(all_dataset_scores), pd.DataFrame(all_logs)
     
     def compute_metrics(self, axis, scores):
         metrics = {"axis": axis}
         # Prepare data for Fleiss' Kappa
         category_labels = [-2, -1, 0, 1, 2]
         
-
         for m, model in enumerate(self.args.models):
             score_counts = np.zeros((len(scores[next(iter(scores))]), len(category_labels)))  # Rows are items, columns are categories
             for judge in range(self.num_judges):
@@ -675,3 +506,57 @@ class MuliRubricRankerJury(RubricRankerJury):
 
         return metrics
     
+class JuryRanker(MuliRubricRankerJury):
+
+    def __init__(self, args: Dict):
+        super().__init__(args)
+        random.seed(args.seed)
+        self.diff_proposer = LLMProposer(args)
+        self.num_judges = len(self.args.judges)
+
+    def get_score(self, row, axis, dummy_eval=False):
+        if dummy_eval:
+            return ["Reasoning: Because I said so\nScore: 0", "Reasoning: Because I said so\nScore: 0"]
+            
+        prompt = """I would like you to evaluate a language model's response with responect to the follwing axis: {axis}. 
+
+        Please give the follwing output a score from -2 to 2 based on the descriptions of what it means to be low and high on this axis. Here is the prompt and output:
+
+        {prompt}
+        
+        Please explain your reasoning before assigning a score. Use the following format for your response:
+
+        Analysis: {{reasoning}}
+        Score: {{choose from: -2, -1, 0, 1, 2}}"""
+
+        judge_systems_prompt = "You are a fair and objective judge of model outputs. Your evaluations are clear, concise, and free from exaggerative language. You strictly adhere to the format and guidelines provided by the user, ensuring each decision is well-supported by the evidence within the outputs themselves."
+        judge_outputs = []
+        for judge in self.args.judges:
+            print(f"Getting judgement for Judge = {judge}")
+            model_outputs = []
+            for model in self.args.models:
+                scoring_prompt = prompt.format(axis=axis, prompt=f"Prompt: {row['question']}\Output: {row[model]}")
+                output_a = get_llm_output(scoring_prompt, model=judge, system_prompt=judge_systems_prompt)
+                model_outputs.append(output_a)
+            judge_outputs.append(model_outputs)
+        return judge_outputs
+    
+    def score_hypothesis(self, hypothesis: str, dataset: List[dict]) -> List[float]:
+        print(f"Scoring hypothesis {hypothesis}")
+        judge_scores = {f"Judge_{i}_scores": [] for i in range(3)} 
+        judge_scores["avg_scores"] = []
+        dataset_scores = []
+        for row in tqdm(dataset):
+            scores = self.get_score(row, hypothesis, dummy_eval=self.args.dummy_eval)
+            if scores is not None:
+                for i, score in enumerate(scores):
+                    row[f'Judge_{i}_scores_reasoning'] = score
+                    row[f"Judge_{i}_score"] = [self.extract_scores(s) for s in score]
+                    row["axis"] = hypothesis
+                    judge_scores[f"Judge_{i}_scores"].append(row[f"Judge_{i}_score"])
+                    dataset_scores.append(row)
+            else:
+                print("No scores found")
+            row["avg_scores"] = aggregate_scores(np.array([row[f"Judge_{i}_score"] for i in range(self.num_judges)]))["Average Score"]
+            judge_scores["avg_scores"].append(row["avg_scores"])
+        return judge_scores, dataset_scores, {}
