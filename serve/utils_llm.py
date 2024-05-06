@@ -11,7 +11,7 @@ import anthropic
 import datetime
 from wandb.sdk.data_types.trace_tree import Trace
 
-from serve.global_vars import LLM_CACHE_FILE, VICUNA_URL, LLM_EMBED_CACHE_FILE, OPENAI_API_KEY, ANTHROPIC_API_KEY, LLAMA_URL
+from serve.global_vars import LLM_CACHE_FILE, VICUNA_URL, LLM_EMBED_CACHE_FILE, OPENAI_API_KEY, ANTHROPIC_API_KEY, LLAMA_URL, LLAMA3_70B_URL
 from serve.utils_general import get_from_cache, save_to_cache, save_emb_to_cache, get_emb_from_cache
 
 logging.basicConfig(level=logging.ERROR)
@@ -46,23 +46,35 @@ def get_llm_output(prompt: str, model: str, cache = True, system_prompt = None, 
             {"role": "user", "content": prompt},
         ]
     else:
-        messages = prompt
+        # messages = prompt
+        messages = [{"role": "system", "content": systems_prompt}] + history + [
+            {"role": "user", "content": prompt},
+        ]
     key = json.dumps([model, messages])
 
     cached_value = get_from_cache(key, llm_cache) if cache else None
     if cached_value is not None:
-        print("LLM Cache Hit")
         logging.debug(f"LLM Cache Hit")
         # create a span in wandb
         # create_and_log_trace(trace_name, model, system_prompt, prompt, cached_value, cached=True)
         return cached_value
     else:
         print("LLM Cache Miss")
+        # print(prompt)
         logging.debug(f"LLM Cache Miss")
 
     for _ in range(3):
         try:
-            if model in ["gpt-3.5-turbo", "gpt-4", "gpt-4-0125-preview"]:
+            if 'gpt-3.5' in model:
+                start_time_ms = datetime.datetime.now().timestamp() * 1000
+                completion = client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                )
+                end_time_ms = round(datetime.datetime.now().timestamp() * 1000)  # logged in milliseconds
+                response = completion.choices[0].message.content.strip()
+            elif 'gpt-4' in model:
                 start_time_ms = datetime.datetime.now().timestamp() * 1000
                 completion = client.chat.completions.create(
                     model=model,
@@ -70,22 +82,46 @@ def get_llm_output(prompt: str, model: str, cache = True, system_prompt = None, 
                 )
                 end_time_ms = round(datetime.datetime.now().timestamp() * 1000)  # logged in milliseconds
                 response = completion.choices[0].message.content.strip()
-            elif 'claude' in model:
+            elif 'claude-opus' in model:
                 completion = client.messages.create(
-                    model="claude-3-opus-20240229",
+                    model=model,
                     messages=messages,
                     max_tokens=1024,
                     system=systems_prompt,
+                )
+                response = completion.content[0].text
+            elif 'claude' in model:
+                completion = client.messages.create(
+                    model=model,
+                    messages=messages,
+                    max_tokens=max_tokens,
                 )
                 response = completion.content[0].text
             elif model == "vicuna":
                 completion = client.chat.completions.create(
                     model="lmsys/vicuna-7b-v1.5",
                     prompt=prompt,
-                    max_tokens=256,
+                    max_tokens=max_tokens,
                     temperature=0.7,  # TODO: greedy may not be optimal
                 )
                 response = completion.choices[0].message.content.strip()
+            elif model == "llama-3-8b":
+                completion = client.chat.completions.create(
+                    model="meta-llama/Meta-Llama-3-8B-Instruct",
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    extra_body={"stop_token_ids":[128009]}
+                )
+                response = completion.choices[0].message.content.strip().replace("<|eot_id|>", "")
+            elif model == "llama-3-70b":
+                completion = client.chat.completions.create(
+                    model="META-LLAMA/LLAMA-3-70B-CHAT-HF",
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    extra_body={"stop_token_ids":[128009]}
+                )
+                response = completion.choices[0].message.content.strip().replace("<|eot_id|>", "")
+                
             save_to_cache(key, response, llm_cache)
 
             # create a span in wandb
