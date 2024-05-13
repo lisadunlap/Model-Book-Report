@@ -428,7 +428,7 @@ class MuliRubricRankerJury(RubricRankerJury):
         judge_systems_prompt = "You are a fair and objective judge of model outputs. Your evaluations are clear, concise, and free from exaggerative language. You strictly adhere to the format and guidelines provided by the user, ensuring each decision is well-supported by the evidence within the outputs themselves."
         judge_outputs = []
         for judge in self.args.judges:
-            print(f"Getting judgement for Judge = {judge}")
+            # print(f"Getting judgement for Judge = {judge}")
             model_outputs = []
             for model in self.args.models:
                 scoring_prompt = prompt.format(axis=axis, rubric=rubric, prompt=f"Prompt: {row['question']}\Output: {row[model]}")
@@ -437,14 +437,15 @@ class MuliRubricRankerJury(RubricRankerJury):
             judge_outputs.append(model_outputs)
         return judge_outputs
     
-    def score_hypothesis(self, hypothesis: str, dataset: List[dict]) -> List[float]:
+    def score_hypothesis(self, hypothesis: str, dataset: List[dict], axis_to_topic: dict, topic_to_example: dict = None) -> List[float]:
         """
         Generate rubric for each hypothesis
         """
         print(f"Scoring hypothesis {hypothesis}")
         rubric, logs = self.generate_rubric(hypothesis)
-        judge_scores = {f"Judge_{i}_scores": [] for i in range(3)} 
+        judge_scores = {f"Judge_{i}_scores": [] for i in range(self.num_judges)} 
         judge_scores["avg_scores"] = []
+        judge_scores["avg_diff_scores"] = []
         dataset_scores = []
         for row in tqdm(dataset):
         # for row in dataset:
@@ -453,58 +454,134 @@ class MuliRubricRankerJury(RubricRankerJury):
                 for i, score in enumerate(scores):
                     row[f'Judge_{i}_scores_reasoning'] = score
                     row[f"Judge_{i}_score"] = [self.extract_scores(s) for s in score]
+                    row[f"Judge_{i}_diff_score"] = [row[f"Judge_{i}_score"][j] - np.mean(row[f"Judge_{i}_score"]) for j in range(len(row[f"Judge_{i}_score"]))]
                     row["axis"] = hypothesis
                     judge_scores[f"Judge_{i}_scores"].append(row[f"Judge_{i}_score"])
             else:
                 print("No scores found")
             row["avg_scores"] = aggregate_scores(np.array([row[f"Judge_{i}_score"] for i in range(self.num_judges)]))["Average Score"]
+            row["avg_diff_scores"] = aggregate_scores(np.array([row[f"Judge_{i}_diff_score"] for i in range(self.num_judges)]))["Average Score"]
             judge_scores["avg_scores"].append(row["avg_scores"])
+            judge_scores["avg_diff_scores"].append(row["avg_diff_scores"])
             dataset_scores.append(row)
         return judge_scores, dataset_scores, logs
     
-    def score(self, axes: List[str], dataset: List[dict]):
+    def score(self, axes: List[str], dataset: List[dict], axis_to_topic: dict, topic_to_example: dict = None):
         all_dataset_scores, all_logs, axis_metrics = [], [], []
         print(f"axes: {axes}")
         for axis in axes:
-            print(f"Scoring for axis {axis}")
-            scores, dataset_scores, logs = self.score_hypothesis(axis, dataset)
-            all_dataset_scores.append(pd.DataFrame(dataset_scores))
-            print(all_dataset_scores)
-            all_logs.append(logs)
-            metrics = self.compute_metrics(axis, scores)
-            axis_metrics.append(metrics)
+            topics = axis_to_topic[axis_to_topic["axis"] == axis].iloc[0]["topic"]
+            print(topics)
+            topic_sample = topic_to_example[topic] if topic_to_example else None
+            for topic in topics:
+                print(f"Scoring for axis {axis} for topic {topic}")
+                axis_dataset = [d for d in dataset if d["topic"] == topic]
+                if self.args.early_stopping:
+                    # try on 10 rows, if the score differences are < 0.1, continue
+                    scores, dataset_scores, logs = self.score_hypothesis(axis, axis_dataset[:10], axis_to_topic, topic_sample)
+                    metrics = self.compute_metrics(axis, scores, topic)
+                    print("LISA LOOK HERE")
+                    print([np.abs(metrics[f"Judge_avg_{model}_mean_diff"]) for model in self.args.models])
+                    mean_dff = np.max([np.abs(metrics[f"Judge_avg_{model}_mean_diff"]) for model in self.args.models])
+                    print(mean_dff)
+                    if mean_dff < 0.1:
+                        print(f"Skipping topic {topic} for axis {axis}")
+                        continue
 
+                scores, dataset_scores, logs = self.score_hypothesis(axis, axis_dataset, axis_to_topic, topic_to_example, topic_sample)
+                all_dataset_scores.append(pd.DataFrame(dataset_scores))
+                all_logs.append(logs)
+                metrics = self.compute_metrics(axis, scores, topic)
+                axis_metrics.append(metrics)
+        if len(axis_metrics) == 0:
+            return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
         return pd.DataFrame(axis_metrics), pd.concat(all_dataset_scores), pd.DataFrame(all_logs)
     
-    def compute_metrics(self, axis, scores):
+    def compute_metrics(self, axis, scores, topic="all"):
+        from sklearn.metrics import cohen_kappa_score
+        from itertools import combinations
         metrics = {"axis": axis}
         # Prepare data for Fleiss' Kappa
         category_labels = [-2, -1, 0, 1, 2]
         
         for m, model in enumerate(self.args.models):
             score_counts = np.zeros((len(scores[next(iter(scores))]), len(category_labels)))  # Rows are items, columns are categories
+            judge_pairs = list(combinations(range(self.num_judges), 2))  # List of all pairs of judges
+            for judge_pair in judge_pairs:
+                judge_1, judge_2 = judge_pair
+                # Get scores for the two judges
+                scores_1 = np.array(scores[f"Judge_{judge_1}_scores"])[:, m]
+                scores_2 = np.array(scores[f"Judge_{judge_2}_scores"])[:, m]
+                # Calculate Cohen's kappa between the two judges
+                kappa = cohen_kappa_score(scores_1, scores_2, weights='linear')
+                # Add result to metrics with a unique key for this pair
+                metrics[f"{model} Cohen's Kappa (Judge {judge_1} vs Judge {judge_2})"] = kappa
             for judge in range(self.num_judges):
                 scores_list = np.array(scores[f"Judge_{judge}_scores"])
-                print(f"Scores list size {scores_list.shape}")
-                print(len(self.args.models))
-                # get the first col of scores list
+                # get the m col of scores list
                 scores_model = scores_list[:, m]
-                for i, score in enumerate(scores_model):
-                    score_counts[i, category_labels.index(score)] += 1
+                # get average across the models
+                model_avg_score = np.average(scores_list, axis=1)
+                score_diff = scores_model - model_avg_score
                 
                 metrics[f"Judge_{judge}_{model}_mean_score"] = np.average(scores_model)
                 metrics[f"Judge_{judge}_{model}_std_score"] = np.std(scores_model)
-                kappa = fleiss_kappa(score_counts)
-                metrics[f"{model} Inter-annotator Agreement"] = kappa
+                metrics[f"Judge_{judge}_{model}_mean_diff"] = np.mean(score_diff)
             
             # compute stats for majority_score
             scores_list = np.array(scores["avg_scores"])
-            print(f"Final scores list size {scores_list.shape}")
             scores_model = scores_list[:, m]
+            model_avg_score = np.average(scores_list, axis=1)
+            score_diff = scores_model - model_avg_score
             metrics[f"Judge_avg_{model}_mean_score"] = np.average(scores_model)
             metrics[f"Judge_avg_{model}_std_score"] = np.std(scores_model)
+            metrics[f"Judge_avg_{model}_mean_diff"] = np.mean(score_diff)
+
+        # do a paired t_test for the per-sample scores averaged across judges for each set of models
+        model_pairs = list(combinations(self.args.models, 2))
+        for model_pair in model_pairs:
+            model_1, model_2 = model_pair
+            model_idxs = [self.args.models.index(model_1), self.args.models.index(model_2)]
+            scores_1 = np.average(np.array([np.array(scores[f"Judge_{judge}_scores"])[:, model_idxs[0]] for judge in range(self.num_judges)]), axis=0)
+            scores_2 = np.average(np.array([np.array(scores[f"Judge_{judge}_scores"])[:, model_idxs[1]] for judge in range(self.num_judges)]), axis=0)
+            t_statistic, p_value = ttest_rel(scores_1, scores_2)
+            metrics[f"t_statistic_{model_1}_{model_2}"] = t_statistic
+            metrics[f"p_value_{model_1}_{model_2}"] = p_value
+        metrics["support"] = len(scores_list)
+        metrics["topic"] = topic
 
         return metrics
+    
+# class MuliRubricRankerJuryTopicSpecific(MuliRubricRankerJury):
+    
+#     def score_hypothesis(self, hypothesis: str, dataset: List[dict], axis_to_topic: dict) -> List[float]:
+#         """
+#         Generate rubric for each hypothesis
+#         """
+#         print(f"Scoring hypothesis {hypothesis}")
+#         rubric, logs = self.generate_rubric(hypothesis)
+#         judge_scores = {f"Judge_{i}_scores": [] for i in range(self.num_judges)} 
+#         judge_scores["avg_scores"] = []
+#         judge_scores["avg_diff_scores"] = []
+#         dataset_scores = []
+#         for row in tqdm(dataset):
+#         # for row in dataset:
+#             scores = self.get_score(row, hypothesis, rubric, dummy_eval=self.args.dummy_eval)
+#             if scores is not None:
+#                 for i, score in enumerate(scores):
+#                     row[f'Judge_{i}_scores_reasoning'] = score
+#                     row[f"Judge_{i}_score"] = [self.extract_scores(s) for s in score]
+#                     row[f"Judge_{i}_diff_score"] = [row[f"Judge_{i}_score"][j] - np.mean(row[f"Judge_{i}_score"]) for j in range(len(row[f"Judge_{i}_score"]))]
+#                     row["axis"] = hypothesis
+#                     judge_scores[f"Judge_{i}_scores"].append(row[f"Judge_{i}_score"])
+#             else:
+#                 print("No scores found")
+#             row["avg_scores"] = aggregate_scores(np.array([row[f"Judge_{i}_score"] for i in range(self.num_judges)]))["Average Score"]
+#             row["avg_diff_scores"] = aggregate_scores(np.array([row[f"Judge_{i}_diff_score"] for i in range(self.num_judges)]))["Average Score"]
+#             judge_scores["avg_scores"].append(row["avg_scores"])
+#             judge_scores["avg_diff_scores"].append(row["avg_diff_scores"])
+#             dataset_scores.append(row)
+#         return judge_scores, dataset_scores, logs
     
 class JuryRanker(MuliRubricRankerJury):
 
@@ -516,7 +593,7 @@ class JuryRanker(MuliRubricRankerJury):
 
     def get_score(self, row, axis, dummy_eval=False):
         if dummy_eval:
-            return ["Reasoning: Because I said so\nScore: 0", "Reasoning: Because I said so\nScore: 0"]
+            return ["Analysis: Because I said so\nScore: 0"]  * len(self.args.models)
             
         prompt = """I would like you to evaluate a language model's response with responect to the follwing axis: {axis}. 
 
@@ -541,22 +618,31 @@ class JuryRanker(MuliRubricRankerJury):
             judge_outputs.append(model_outputs)
         return judge_outputs
     
-    def score_hypothesis(self, hypothesis: str, dataset: List[dict]) -> List[float]:
+    def score_hypothesis(self, hypothesis: str, dataset: List[dict], axis_to_topic: dict) -> List[float]:
+        """
+        Generate rubric for each hypothesis
+        """
         print(f"Scoring hypothesis {hypothesis}")
-        judge_scores = {f"Judge_{i}_scores": [] for i in range(3)} 
+        judge_scores = {f"Judge_{i}_scores": [] for i in range(self.num_judges)} 
         judge_scores["avg_scores"] = []
+        judge_scores["avg_diff_scores"] = []
         dataset_scores = []
         for row in tqdm(dataset):
+        # for row in dataset:
             scores = self.get_score(row, hypothesis, dummy_eval=self.args.dummy_eval)
             if scores is not None:
                 for i, score in enumerate(scores):
                     row[f'Judge_{i}_scores_reasoning'] = score
                     row[f"Judge_{i}_score"] = [self.extract_scores(s) for s in score]
+                    row[f"Judge_{i}_diff_score"] = [row[f"Judge_{i}_score"][j] - np.mean(row[f"Judge_{i}_score"]) for j in range(len(row[f"Judge_{i}_score"]))]
                     row["axis"] = hypothesis
                     judge_scores[f"Judge_{i}_scores"].append(row[f"Judge_{i}_score"])
-                    dataset_scores.append(row)
             else:
                 print("No scores found")
             row["avg_scores"] = aggregate_scores(np.array([row[f"Judge_{i}_score"] for i in range(self.num_judges)]))["Average Score"]
+            row["avg_diff_scores"] = aggregate_scores(np.array([row[f"Judge_{i}_diff_score"] for i in range(self.num_judges)]))["Average Score"]
             judge_scores["avg_scores"].append(row["avg_scores"])
+            judge_scores["avg_diff_scores"].append(row["avg_diff_scores"])
+            dataset_scores.append(row)
         return judge_scores, dataset_scores, {}
+    

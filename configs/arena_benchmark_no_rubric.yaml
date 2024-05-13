@@ -1,0 +1,30 @@
+project: VibeCheck
+wandb: False # Set to True to log to Weights and Biases
+num_samples: False
+dummy_eval: False
+oz: False
+group_column: False
+test: False
+save_dir: pipeline_results
+# data_path: data/benchmark/arena_data.csv
+data_path: data/benchmark/arena_friendly_and_cold_smaller.csv
+k: 3
+batch_size: 50
+num_axes_generated: 5
+num_eval: 10
+embedding_model: text-embedding-3-small
+seed: 42
+cluster_method: hierarchical
+ranker: JuryRanker
+sampler: ClusterSampler
+reducer: AxisReducer
+proposer: LLMProposerMultiModel
+num_topic_clusters: 5
+heldout_percentage: 0.75
+proposer_batch_size: 10
+judges: [claude-3-haiku-20240307, llama-3-8b, llama-3-70b]
+# models: ['friendly and personable', 'professional', 'casual', 'cold-and-factual', 'storyteller', 'organized', 'safety-concious', 'conspiracy-theorist', 'funny', 'imaginative', 'anotagonistic']
+models: [A, B]
+eval_only: False
+axes: ["Tone and Formality: High: Casual, personalized, and empathetic with frequent use of interjections and humor. Low: Professional, neutral, and factual without personalization."]
+early_stopping: False 

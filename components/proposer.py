@@ -160,8 +160,8 @@ class LLMPairwiseProposerWithQuestion(Proposer):
         super().__init__(args)
         self.systems_prompt = "Given a dataset of text outputs from two different large language models (LLMs), your task is to analyze and summarize the data based on specific characteristics. The goal is to identify and cluster similar behaviors or traits within the outputs, summarizing these into a concise list of commonly observed behaviors for each model. This analysis will help in understanding the general behaviors of these models for auditing, error discovery, and comparison purposes. Your outputs adhere to the format given by the user."
         self.smaller_systems_prompt = "You are a helpful assistant. Your outputs adhere to the format given by the user."
-        self.model_columns = [args.model_a_column, args.model_b_column]
-        self.model_a, self.model_b = args.model_a_column, args.model_a_column
+        # self.model_columns = [args.model_a_column, args.model_b_column]
+        # self.model_a, self.model_b = args.model_a_column, args.model_a_column
 
     def propose(
         self, df
@@ -176,20 +176,20 @@ class LLMPairwiseProposerWithQuestion(Proposer):
         # get per question differences
         results = {"question":[], "answer_a":[], "answer_b":[], "response": [], "axis_response": []}
         for i, row in tqdm(df.iterrows(), total=df.shape[0]):
-            texts = f"{row['question']}\nModel A:\n{row[self.model_columns[0]]}\n\nModel B:\n{row[self.model_columns[1]]}\n"
+            texts = f"{row['question']}\nModel A:\n{row[self.args.model_a_column]}\n\nModel B:\n{row[self.args.model_b_column]}\n"
             if self.args.oz:
                 prompt = OZ_PROMPT.format(text=texts, axes="\n".join([f"* {axis}" for axis in oz_axes]))
             else:
                 prompt = DEFAULT_PROMPT.format(text=texts)
-            response = get_llm_output(prompt, model="gpt-3.5-turbo", system_prompt=self.systems_prompt, trace_name="per question differences").replace("**", "")
+            response = get_llm_output(prompt, model="gpt-3.5-turbo", system_prompt=self.systems_prompt).replace("**", "")
             # results["prompt"].append(texts)
             results["question"].append(row['question'])
-            results["answer_a"].append(row[self.model_columns[0]].strip('[]'))
-            results["answer_b"].append(row[self.model_columns[1]].strip('[]'))
+            results["answer_a"].append(row[self.args.model_a_column].strip('[]'))
+            results["answer_b"].append(row[self.args.model_b_column].strip('[]'))
             results["response"].append(response)
             # results["axes"].append(extract_entities(response))
             axis_prompt = AXIS_CONVERSION.format(axes=response)
-            axis_response = get_llm_output(axis_prompt, model="gpt-3.5-turbo", system_prompt=self.smaller_systems_prompt, trace_name="convert per question axes")
+            axis_response = get_llm_output(axis_prompt, model="gpt-3.5-turbo", system_prompt=self.smaller_systems_prompt)
             results["axis_response"].append(axis_response)
             
         results = pd.DataFrame(results)
@@ -211,8 +211,8 @@ class LLMBatchProposer(LLMPairwiseProposerWithQuestion):
         super().__init__(args)
         self.systems_prompt = "Given a dataset of text outputs from two different large language models (LLMs), your task is to analyze and summarize the data based on specific characteristics. The goal is to identify and cluster similar behaviors or traits within the outputs, summarizing these into a concise list of commonly observed behaviors for each model. This analysis will help in understanding the general behaviors of these models for auditing, error discovery, and comparison purposes. Your outputs adhere to the format given by the user."
         self.smaller_systems_prompt = "You are a helpful assistant. Your outputs adhere to the format given by the user."
-        self.model_columns = [args.model_a_column, args.model_b_column]
-        self.model_a, self.model_b = args.model_a_column, args.model_a_column
+        # self.model_columns = [args.model_a_column, args.model_b_column]
+        # self.model_a, self.model_b = args.model_a_column, args.model_a_column
         self.batch_size = args.proposer_batch_size
 
     def propose_batch(self, df):
@@ -226,15 +226,15 @@ class LLMBatchProposer(LLMPairwiseProposerWithQuestion):
         # get per question differences
         texts = []
         for i, row in tqdm(df.iterrows(), total=df.shape[0]):
-            texts.append(f"{row['question']}\nModel A:\n{row[self.model_columns[0]]}\n\nModel B:\n{row[self.model_columns[1]]}\n")
+            texts.append(f"{row['question']}\nModel A:\n{row[self.args.model_a_column]}\n\nModel B:\n{row[self.args.model_b_column]}\n")
         texts = "\n".join(texts)
         if self.args.oz:
             prompt = OZ_PROMPT.format(text=texts, axes="\n".join([f"* {axis}" for axis in oz_axes]))
         else:
             prompt = DEFAULT_PROMPT.format(text=texts)
-        response = get_llm_output(prompt, model="gpt-4-0125-preview", system_prompt=self.systems_prompt, trace_name="per question differences").replace("**", "")
+        response = get_llm_output(prompt, model="gpt-4-0125-preview", system_prompt=self.systems_prompt).replace("**", "")
         axis_prompt = AXIS_CONVERSION.format(axes=response)
-        axis_response = get_llm_output(axis_prompt, model="gpt-4-0125-preview", system_prompt=self.smaller_systems_prompt, trace_name="convert per question axes")
+        axis_response = get_llm_output(axis_prompt, model="gpt-4-0125-preview", system_prompt=self.smaller_systems_prompt)
         return response, axis_response, {"proposal_prompt": prompt, "response": response, "conversion_prompt": axis_prompt, "axis_response": axis_response}
 
     def propose(
@@ -254,8 +254,8 @@ class LLMBatchProposer(LLMPairwiseProposerWithQuestion):
             batch = df.iloc[batch_start:batch_start + self.batch_size]
             response, axis_response, logs = self.propose_batch(batch)
             results["question"].extend(batch['question'].tolist())
-            results["answer_a"].extend(batch[self.model_columns[0]].tolist())
-            results["answer_b"].extend(batch[self.model_columns[1]].tolist())
+            results["answer_a"].extend(batch[self.args.model_a_column].tolist())
+            results["answer_b"].extend(batch[self.args.model_b_column].tolist())
             results["response"].extend([response] * len(batch))
             results["axis_response"].extend([axis_response] * len(batch))
             llm_logs.append(logs)
@@ -275,6 +275,37 @@ class LLMBatchProposer(LLMPairwiseProposerWithQuestion):
         all_axis_descriptions = list(set(results['axis_description']))
         return all_axis_descriptions, llm_logs, pairwise_differences, results
 
+def parse_bullets(text):
+    # Use regex to extract bullet sections, supporting "-", "*", numerical bullets, and others
+    bullet_sections = re.split(r"\n\s*-\s*", text.strip())
+    print(bullet_sections)
+    print("-----------")
+    
+    result = []
+    reslts_str = [] # string comprised of category and details
+    
+    for section in bullet_sections:
+        # Normalize section by removing leading markers and spaces
+        section = re.sub(r"^\s*[-*\d.]+", "", section).strip()
+        
+        # Split each section based on High/Low points using regular expressions
+        title, *details = section.splitlines()
+        parsed_details = {}
+        
+        for line in details:
+            match = re.match(r"\s*(High|Low):\s*(.+)", line)
+            if match:
+                key, value = match.groups()
+                parsed_details[key] = value
+        
+        result.append({
+            "Category": title.strip(": \n"),
+            "Details": parsed_details
+        })
+        reslts_str.append(title + " " + str(parsed_details))
+    
+    return [r.replace("{", "").replace("}", "") for r in reslts_str]
+
 class LLMProposerMultiModel(LLMBatchProposer):
 
     def __init__(self, args: Dict):
@@ -289,7 +320,7 @@ class LLMProposerMultiModel(LLMBatchProposer):
         Get differences over a list of prompts
         """
 
-        proposer_prompt = """
+        oz_proposer_prompt = """
             The following are the result of asking a set language models to generate an answer for the same questions:
 
             {text}
@@ -310,6 +341,39 @@ class LLMProposerMultiModel(LLMBatchProposer):
             
             Please output differences which have a possibility of showing up in future unseen data and which would be useful for a human to know about when deciding with LLM to use. For each axis, define clearly and succinctly what constitutes a high or low score, ensuring these definitions are mutually exclusive. For each axis, also provide an explanation of what in the text proves this difference exists. Please order your response in terms of the most prominent differences between the two outputs. If the outputs are nearly identical, please write "No differences found."
         """
+        proposer_prompt = """
+            The following are the result of asking a set language models to generate an answer for the same questions:
+
+            {text}
+
+            I am a machine learning researcher trying to figure out the major differences between these two LLM outputs so I can better compare the behavior of these models. Are there any general patterns, clusters, or variations you notice in the outputs? 
+
+        Please output a list differences between these sets of outputs with relation to specific axes of variation. Try to give axes that a human could easily interpret and they could understand what it means to be higher or lower on that specific axis. Please ensure that the concepts used to explain what is high and low on the axis are distinct and mutually exclusive such that given any tuple of text outputs, a human could easily and reliably determine which model is higher or lower on that axis.
+        This list is not exhaustive, please add new axes in your response even if it does not fit under one of these categories. If the outputs are roughly the same along one of the provided axes do not include it. 
+
+        The format should be
+        - {{axis_1}}: {{difference}}
+        - {{axis_2}}: {{difference}}
+            
+            Please output differences which have a possibility of showing up in future unseen data and which would be useful for a human to know about when deciding with LLM to use. For each axis, define clearly and succinctly what constitutes a high or low score, ensuring these definitions are mutually exclusive. For each axis, also provide an explanation of what in the text proves this difference exists. Please order your response in terms of the most prominent differences between the two outputs. If the outputs are nearly identical, please write "No differences found."
+        """
+
+        axis_convert = """The following are the axes of variation that you can consider when comparing the two outputs along with a description of how language model outputs vary along that axis:
+
+            {axes}
+
+            I want to formalize exactly what it means to be high and low on each axis. For each axis, I want you to provide a description of what it means to be high and low on that axis so that I can place future model outputs along this axis. Your output should be in this format:
+
+            - {{axis_1}}:
+                High: {{description of high}}
+                Low: {{description of low}}
+
+            - {{axis_2}}:
+                High: {{description of high}}
+                Low: {{description of low}}
+
+            Please ensure that the description what is high and low on the axis are distinct and mutually exclusive such that given any unseen pair of text outputs, a human could easily and reliably determine which model is higher or lower on that axis. Please keep the axis name and descriptions of what is high and low are less than 5 words each.
+        """
 
         assert "question" in df.columns, "'question' column not in dataset"
         random.seed(self.args.seed)
@@ -317,52 +381,61 @@ class LLMProposerMultiModel(LLMBatchProposer):
 
         # get per question differences
         texts = []
+        # shuffle args.models
+        shuffled_cols = random.sample(self.model_columns, len(self.model_columns))
         for i, row in tqdm(df.iterrows(), total=df.shape[0]):
-            for j, model in enumerate(self.model_columns):
+            for j, model in enumerate(shuffled_cols):
                 texts.append(f"{row['question']}\nModel {j}:\n{row[model]}\n")
-            texts.append(f"{row['question']}\nModel A:\n{row[self.model_columns[0]]}\n\nModel B:\n{row[self.model_columns[1]]}\n")
         texts = "\n".join(texts)
         if self.args.oz:
-            prompt = OZ_PROMPT.format(text=texts, axes="\n".join([f"* {axis}" for axis in oz_axes]))
+            prompt = oz_proposer_prompt.format(text=texts, axes="\n".join([f"* {axis}" for axis in oz_axes]))
         else:
-            prompt = DEFAULT_PROMPT.format(text=texts)
-        response = get_llm_output(prompt, model="gpt-4-0125-preview", system_prompt=self.systems_prompt, trace_name="per question differences").replace("**", "")
-        axis_prompt = AXIS_CONVERSION.format(axes=response)
-        axis_response = get_llm_output(axis_prompt, model="gpt-4-0125-preview", system_prompt=self.smaller_systems_prompt, trace_name="convert per question axes")
+            prompt = proposer_prompt.format(text=texts)
+        response = get_llm_output(prompt, model="claude-3-opus-20240229", system_prompt=self.systems_prompt).replace("**", "")
+        if "LLM Error" in response:
+            exit(0)
+        axis_prompt = axis_convert.format(axes=response)
+        axis_response = get_llm_output(axis_prompt, model="gpt-4", system_prompt=self.smaller_systems_prompt)
         return response, axis_response, {"proposal_prompt": prompt, "response": response, "conversion_prompt": axis_prompt, "axis_response": axis_response}
-        
-def test_proposers():
-    dataset = pd.read_csv("data/diffusion_plates.csv")
-    dataset = dataset.to_dict("records")
-    dataset1 = [item for item in dataset if item["set"] == "a_plate"]
-    dataset2 = [item for item in dataset if item["set"] == "a_dinner_plate"]
+    
+    def propose(
+        self, df
+    ) -> Tuple[List[str], List[Dict], List[Dict]]:
+        """
+        Given two datasets, return a list of hypotheses
+        """
+        assert "question" in df.columns, "'question' column not in dataset"
+        random.seed(self.args.seed)
+        oz_axes = ["Tone", "Format", "Level of Detail", "Ability to answer", "Safety", "Approach", "Creativity", "Fluency and crammatical correctness", "Adherence to prompt"]
 
-    args = {
-        "num_rounds": 2,
-        "num_samples": 10,
-        "num_hypotheses": 10,
-        "seed": 0,
-        "prompt": "CLIP_FRIENDLY",
-        "model": "gpt-4",
-        "captioner": {
-            "prompt": "Describe this image",
-            "model": "llava",
-        },
-    }
+        # get per question differences
+        results = {"question":[], "response": [], "axis_response": [], "topic": []}
+        llm_logs = []
+        # partition df by column topic then batch 
+        topic_dfs = [df[df['topic'] == topic] for topic in df['topic'].unique()]
+        for topic_df in topic_dfs:
+            print(f"Proporing for topic {topic_df['topic'].iloc[0]} of length {len(topic_df)}")
+            # add tqdm
+            for batch_start in range(0, len(topic_df), self.batch_size):
+                batch = topic_df.iloc[batch_start:batch_start + self.batch_size]
+                assert batch["topic"].nunique() == 1, "Batch should have the same topic"
+                response, axis_response, logs = self.propose_batch(batch)
+                results["question"].extend(batch['question'].tolist())
+                results["response"].extend([response] * len(batch))
+                results["axis_response"].extend([axis_response] * len(batch))
+                results["topic"].extend(batch['topic'].tolist())
+                llm_logs.append(logs)
 
-    proposer = LLMProposer(args)
-    hypotheses, _, _ = proposer.propose(dataset1, dataset2)
-    print(hypotheses)
+        results = pd.DataFrame(results)
+        pairwise_differences = results[['question', 'response', 'axis_response']]
+        llm_logs = pd.DataFrame(llm_logs)
 
-    args = {
-        "num_rounds": 2,
-        "num_samples": 10,
-        "num_hypotheses": 10,
-        "seed": 0,
-        "prompt": "VLM_PROMPT",
-        "model": "llava",
-    }
+        results["no_difference_detected"] = results["response"].apply(lambda x: is_match(x, "No differences found"))
+        results = results[~results["no_difference_detected"]]
 
+        # cluster per axis differences
+        results['axis_description'] = results['axis_response'].apply(parse_bullets)
+        results = results.explode('axis_description')
 
-if __name__ == "__main__":
-    test_proposers()
+        all_axis_descriptions = list(set(results['axis_description']))
+        return all_axis_descriptions, llm_logs, pairwise_differences, results

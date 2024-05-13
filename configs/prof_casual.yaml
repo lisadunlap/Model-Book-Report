@@ -1,0 +1,33 @@
+project: ProfessionalCasual
+wandb: False # Set to True to log to Weights and Biases
+num_samples: False
+dummy_eval: False
+oz: False
+group_column: False
+test: False
+save_dir: pipeline_results
+data_path: data/benchmark/claude_inputs_expanded.csv
+k: 3
+batch_size: 50
+num_eval: 3
+embedding_model: text-embedding-3-small
+seed: 42
+cluster_method: hierarchical
+proposer_batch_size: 5
+ranker: MuliRubricRankerJury
+# ranker: JuryRanker
+heldout_percentage: 1.0
+models: [professional, casual]
+judges: [gpt-3.5-turbo, claude-3-haiku-20240307, llama-3-8b]
+eval_only: False
+axes: [
+    "Formality: High = Formal language, technical terms, polite expressions; Low = Casual, slang, informal expressions",
+    "Complexity: High = Complex sentence structures, advanced vocabulary; Low = Simple language, basic vocabulary",
+    "Structure: High = Organized with headings, bullet points; Low = Free-form prose, stream of consciousness",
+    "Objectivity: High = Fact-based, neutral tone; Low = Subjective, personal opinions, emotionally charged",
+    "Creativity: High = Novel ideas, unique expressions, imaginative; Low = Conventional ideas, clichéd expressions",
+    "Level of Detail: High = Specific and detailed information, accurate facts; Low = Vauge or high-level information",
+    "Tone: High = Distinct emotional quality, human-like expressiveness; Low = Neutral, no distinct emotional quality",
+    "Engagement & Influence: High = Engages and persuades with questions, calls to action; Low = Non-engaging, purely informational",
+    "Adherence to Prompt: High = Closely follows the prompt; Low = Deviates from or ignores the prompt",
+]

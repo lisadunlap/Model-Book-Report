@@ -27,7 +27,24 @@ from components.parsing_utils import *
 import components.ranker as rankers
 import components.proposer as proposers
 import components.reducer as reducers
+import components.sampler as samplers
 
+
+def get_save_str(args,num_samples):
+    # get first 3 letters of ech model if length is too long (>50)
+    model_group = '-'.join(args.models).replace(' ', '')
+    model_group = '-'.join([x[:3] for x in args.models]).replace(' ', '') if len(model_group) > 50 else model_group
+    # create str of datapath for savins
+    save_str = args.data_path.split("/")[-1].split(".")[0] + "_per_topic"
+    save_str = f"{save_str}/{args.output_name}" if args.output_name else save_str
+    save_str = f"{save_str}/{args.proposer}-{args.sampler}_{args.num_topic_clusters}-{args.ranker}"
+    tag = f"{model_group}_k{args.k}_seed{args.seed}" if not args.num_samples else f"{model_group}_{args.k}_samples{num_samples}_seed{args.seed}"
+    tag = f"{tag}_oz" if args.oz else tag
+    tag = f"{tag}_dummy_eval" if args.dummy_eval else tag
+    tag = f"{tag}_axes_provided" if args.axes else tag
+    if not os.path.exists(f"{args.save_dir}/{save_str}"):
+        os.makedirs(f"{args.save_dir}/{save_str}", exist_ok=True)
+    return save_str, tag
 
 import argparse
 def main():
@@ -40,8 +57,9 @@ def main():
     flags, unknown = parser.parse_known_args()
 
     overrides = OmegaConf.from_cli(flags.overrides)
+    base_cfg  = OmegaConf.load("configs/base.yaml")
     cfg       = OmegaConf.load(flags.config)
-    args      = OmegaConf.merge(cfg, overrides)
+    args      = OmegaConf.merge(base_cfg, cfg, overrides)
     args.yaml = flags.config
 
     np.random.seed(args.seed)
@@ -52,120 +70,156 @@ def main():
         os.environ["WANDB_MODE"] = "dryrun"
     proj_name = args.project if not args.dummy_eval else f"llm_eval_refactor_debug"
     proj_name = f"{proj_name}_test" if args.test else proj_name
-    global_df = pd.read_csv(args.data_path)
+    df = pd.read_csv(args.data_path)
     print(f"Models: {args.models}")
     print(f"Eval Axes: {args.axes}")
     # remove duplicate question-answer
-    global_df.drop_duplicates(subset=args.models, inplace=True)
+    df.drop_duplicates(subset=args.models, inplace=True)
 
     
 
     if args.group_column:
-        groups = global_df[args.group_column].unique()
+        groups = df[args.group_column].unique()
         print(f"Running VibeCheck on group {args.group_column}({groups})")
-        print(f"Group value counts: {global_df[args.group_column].value_counts()}")
+        print(f"Group value counts: {df[args.group_column].value_counts()}")
     else:
         groups = ["all"]
 
-    if args.test:
-        groups = groups[:3]
-    for group in groups:
-        if args.group_column:
-            df = global_df[global_df[args.group_column] == group]
-        else:
-            df = global_df
-        # model_group = '-'.join(args.models).replace(' ', '')[:30]
-        # get first 3 letters of ech model if length is too long (>50)
-        model_group = '-'.join(args.models).replace(' ', '')
-        model_group = '-'.join([x[:3] for x in args.models]).replace(' ', '') if len(model_group) > 50 else model_group
-        wandb.init(project=proj_name, entity="lisadunlap", config=dict(args), group=model_group, name=f"{args.group_column}-{group}")
+    # # model_group = '-'.join(args.models).replace(' ', '')[:30]
+    # # get first 3 letters of ech model if length is too long (>50)
+    # model_group = '-'.join(args.models).replace(' ', '')
+    # model_group = '-'.join([x[:3] for x in args.models]).replace(' ', '') if len(model_group) > 50 else model_group
+    # wandb.init(project=proj_name, entity="lisadunlap", config=dict(args), group=model_group, name=f"{args.group_column}")
 
-        # create str of datapath for savins
-        num_samples = min(args.num_samples, df.shape[0]) if args.num_samples else df.shape[0]
-        save_str = args.data_path.split("/")[-1].split(".")[0] + f"_{group}"
-        tag = f"{model_group}_k{args.k}_seed{args.seed}" if not args.num_samples else f"{model_group}_{args.k}_samples{num_samples}_seed{args.seed}"
-        tag = f"{tag}_oz" if args.oz else tag
-        tag = f"{tag}_dummy_eval" if args.dummy_eval else tag
-        if not os.path.exists(f"{args.save_dir}/{save_str}"):
-            os.makedirs(f"{args.save_dir}/{save_str}")
+    # # create str of datapath for savins
+    # num_samples = min(args.num_samples, df.shape[0]) if args.num_samples else df.shape[0]
+    # save_str = args.data_path.split("/")[-1].split(".")[0] 
+    # save_str = f"{save_str}/{args.output_name}" if args.output_name else save_str
+    # save_str = f"{save_str}/{args.proposer}-{args.sampler}_{args.num_topic_clusters}-{args.ranker}"
+    # tag = f"{model_group}_k{args.k}_seed{args.seed}" if not args.num_samples else f"{model_group}_{args.k}_samples{num_samples}_seed{args.seed}"
+    # tag = f"{tag}_oz" if args.oz else tag
+    # tag = f"{tag}_dummy_eval" if args.dummy_eval else tag
+    # tag = f"{tag}_axes_provided" if args.axes else tag
+    # if not os.path.exists(f"{args.save_dir}/{save_str}"):
+    #     os.makedirs(f"{args.save_dir}/{save_str}", exist_ok=True)
 
-        # randomly sample 10 rows, set random seed for reproducibility
-        if args.num_samples:
-            df = df.sample(num_samples, random_state=args.seed)
+    num_samples = min(args.num_samples, df.shape[0]) if args.num_samples else df.shape[0]
+    save_str, tag = get_save_str(args, num_samples)
 
-        df = df[['question', *args.models]]
-        heldout_len = int(df.shape[0] * args.heldout_percentage)
-        heldout_df = df.sample(heldout_len, random_state=args.seed)
-        df = df.drop(heldout_df.index)
+    # randomly sample 10 rows, set random seed for reproducibility
+    if args.num_samples:
+        df = df.sample(num_samples, random_state=args.seed)
 
-        print(f"Running a VibeCheck on {df.shape[0]} samples")
-        if args.eval_only:
-            print(f"Running eval only on {heldout_df.shape[0]} samples")
-        elif args.axes:
-            print(f"Running eval on {len(args.axes)} axes : {args.axes}")
-        else:
-            # ######################################
-            # #### get per question differences ####
-            # ######################################
-            # proposer = LLMPairwiseProposerWithQuestion(args)
-            proposer = getattr(proposers, args.proposer)(args)
-            all_axis_descriptions, llm_logs, pairwise_differences, results = proposer.propose(df)
-            wandb.log({"per_sample_differences": wandb.Table(dataframe=results), "pairwise_diff_llm_logs": wandb.Table(dataframe=llm_logs)})
+    old_df = df
+    df = df[['question', *args.models]]
+    # add in group_column if it exists
+    if args.group_column:
+        df[args.group_column] = old_df[args.group_column]
+    # heldout_len = int(df.shape[0] * args.heldout_percentage)
+    # heldout_df = df.sample(heldout_len, random_state=args.seed)
+    heldout_df = df
+    
+    # sample
+    sampler = getattr(samplers, args.sampler)(args)
+    topics, centroids = sampler.sample(df)
+    np.save(f"{args.save_dir}/{save_str}/{tag}-topic-centroids.np", centroids)
+    df["topic"] = topics
 
+    print(f"Running a VibeCheck on {len(df)} samples")
+    if args.eval_only:
+        print(f"Running eval only on {heldout_df.shape[0]} samples")
+    elif args.axes:
+        print(f"Running eval on {len(args.axes)} axes : {args.axes}")
+    else:
+        # sample at most 20 samples per topic
+        proposal_df = df.groupby('topic').sample(min(20, df['topic'].value_counts().min()), random_state=args.seed)
+        topic_counts = df['topic'].value_counts()
+        for topic, count in topic_counts.items():
+            wandb.summary[f"{topic} count"] = count
 
-            ######################################
-            #### cluster per question axes    ####
-            ######################################
-            all_axis_descriptions = list(results['axis_description'])
-            all_axis_descriptions = [x.replace("*", "") for x in all_axis_descriptions]
+        topic_to_example = {"topic": [], "example": [], "prompt": []} if args.topic_based_rubric_example else None
+        if args.topic_based_rubric_example:
+            for topic in df.topic.unique():
+                rubric_example = sampler.get_example_prompt(proposal_df["question"].tolist())
+                print(f"Rubric Example for topic {topic}\n{rubric_example}\n-------------------")
+                topic_to_example["topic"].append(topic)
+                topic_to_example["example"].append(rubric_example["response"])
+                topic_to_example["prompt"].append(rubric_example["example_generation_prompt"])
+            topic_to_example = pd.DataFrame(topic_to_example)
+            topic_to_example.to_json(f"{args.save_dir}/{save_str}/{tag}-topic_to_example.json", orient='records')
+            wandb.log({"topic_to_example": wandb.Table(dataframe=topic_to_example)})
 
-            # reducer = AxisReducer(args)
-            reducer = getattr(reducers, args.reducer)(args)
-            parent_axes, child_parent_map, tables = reducer.reduce(all_axis_descriptions)
-            print("Len child parent", len(child_parent_map), len(results))
-            results['parent_axis'] = child_parent_map
-            wandb.log({k: wandb.Table(dataframe=v) for k, v in tables.items()})
-            # results['parent_axis_deets'] = results['parent_axis'].apply(parse_high_low) # returns {"parent_axis_name": "error", "parent_high": "error", "parent_low": "error"}
-            results.to_csv(f"{args.save_dir}/{save_str}/{tag}-results.csv", index=False)
-            eval_axes = results['parent_axis'].value_counts()[:args.num_eval].index.tolist()
-
-        ######################################
-        ############  score axes  ############
-        ######################################
-        # load if eval only
-        if args.eval_only:
-            if not os.path.exists(f"{args.save_dir}/{save_str}/{tag}-results.csv"):
-                raise ValueError(f"Results file not found at {args.save_dir}/{save_str}/{tag}-results.csv")
-            print(f"Loading {args.save_dir}/{save_str}/{tag}-results.csv...")
-            results = pd.read_csv(f"{args.save_dir}/{save_str}/{tag}-results.csv")
-
-            print(results.columns)
-            eval_axes = results['parent_axis'].value_counts()[:args.num_eval].index.tolist()
-            print(f"\n\n{results['parent_axis'].value_counts()}\n{eval_axes}\n\n")
-            results.to_csv(f"{args.save_dir}/{save_str}/{tag}-eval-results.csv", index=False)
-            metrics.to_csv(f"{args.save_dir}/{save_str}/{tag}-eval-metrics.csv", index=False)
-        elif args.axes:
-            eval_axes = args.axes
-
-        # evaluator = LLMOnlyRanker(args)
-        evaluator = getattr(rankers, args.ranker)(args)
-        metrics, results, scoring_logs = evaluator.score(eval_axes, heldout_df.to_dict("records"))
-        results.to_csv(f"{args.save_dir}/{save_str}/{tag}-eval-results.csv", index=False)
-        metrics.to_csv(f"{args.save_dir}/{save_str}/{tag}-eval-metrics.csv", index=False)
-        scoring_logs.to_csv(f"{args.save_dir}/{save_str}/{tag}-scoring-logs.csv", index=False)
-        results = results.drop_duplicates(subset=['question', 'axis'])
-
-        wandb.log({"summary_results": wandb.Table(dataframe=results), 
-                   "scoring_logs": wandb.Table(dataframe=scoring_logs),
-                   "metrics": metrics,
-                   })
+        # ######################################
+        # #### get per question differences ####
+        # ######################################
+        proposer = getattr(proposers, args.proposer)(args)
+        all_axis_descriptions, llm_logs, pairwise_differences, results = proposer.propose(proposal_df)
+        wandb.log({"per_sample_differences": wandb.Table(dataframe=results), "pairwise_diff_llm_logs": wandb.Table(dataframe=llm_logs)})
 
         ######################################
-        ############  test scores  ###########
-        ######################################   
-        # TODO
+        #### cluster per question axes    ####
+        ######################################
+        all_axis_descriptions = list(results['axis_description'])
+        all_axis_descriptions = [x.replace("*", "") for x in all_axis_descriptions]
+
+        # reducer = AxisReducer(args)
+        reducer = getattr(reducers, args.reducer)(args)
+        parent_axes, child_parent_map, tables = reducer.reduce(all_axis_descriptions)
+        results['axis'] = child_parent_map
+        axis_to_topic = results.groupby('axis')['topic'].apply(set).reset_index()
+        results.to_csv(f"{args.save_dir}/{save_str}/{tag}-reducer_results.csv", index=False)
+        axis_to_topic.to_json(f"{args.save_dir}/{save_str}/{tag}-axes_to_topic.json", orient='records')
+        eval_axes = results['axis'].value_counts()[:args.num_eval].index.tolist()
+        wandb.log({k: wandb.Table(dataframe=v) for k, v in tables.items()})
+        wandb.log({"eval_axes": results['axis'].value_counts().reset_index(), "results": wandb.Table(dataframe=results), "axis_to_topic": wandb.Table(dataframe=axis_to_topic)})
+        if args.proposer_only:
+            wandb.finish()
+            exit(0)
+
+    ######################################
+    ############  score axes  ############
+    ######################################
+    print("STARTING EVAL")
+    # load if eval only
+    if args.eval_only:
+        if not os.path.exists(f"{args.save_dir}/{save_str}/{tag}-results.csv"):
+            raise ValueError(f"Results file not found at {args.save_dir}/{save_str}/{tag}-results.csv")
+        print(f"Loading {args.save_dir}/{save_str}/{tag}-results.csv...")
+        results = pd.read_csv(f"{args.save_dir}/{save_str}/{tag}-results.csv")
+        axis_to_topic = pd.read_json(f"{args.save_dir}/{save_str}/{tag}-axes_to_topic.json", orient='records')
+        eval_axes = results['axis'].value_counts()[:args.num_eval].index.tolist()
+        print(f"\n\n{results['axis'].value_counts()}\n{eval_axes}\n\n")
+        topic_to_example = pd.read_json(f"{args.save_dir}/{save_str}/{tag}-topic_to_example.json", orient='records')
+    elif args.axes:
+        eval_axes = args.axes
+        axis_to_topic = {"axis": [], "topic": []}
+        for axis in eval_axes:
+            axis_to_topic["axis"].append(axis)
+            axis_to_topic["topic"].append(df['topic'].unique().tolist())
+        axis_to_topic = pd.DataFrame(axis_to_topic)
+        print(f"Axis to topic: {axis_to_topic}")
         
-        wandb.finish()
+
+    # evaluator = LLMOnlyRanker(args)
+    evaluator = getattr(rankers, args.ranker)(args)
+    metrics, results, scoring_logs = evaluator.score(eval_axes, heldout_df.to_dict("records"), axis_to_topic, topic_to_example)
+    results.to_json(f"{args.save_dir}/{save_str}/{tag}-eval-results.json", orient='records')
+    metrics.to_json(f"{args.save_dir}/{save_str}/{tag}-eval-metrics.json", orient='records')
+    scoring_logs.to_json(f"{args.save_dir}/{save_str}/{tag}-scoring-logs.json", orient='records')
+    # results = results.drop_duplicates(subset=['question', 'axis'])
+
+    wandb.log({
+                "scoring_logs": wandb.Table(dataframe=scoring_logs),
+                "summary_results": wandb.Table(dataframe=results), 
+                "metrics": metrics,
+                })
+
+    ######################################
+    ############  test scores  ###########
+    ######################################   
+    # TODO
+    
+    wandb.finish()
 
 # make main function
 if __name__ == "__main__":

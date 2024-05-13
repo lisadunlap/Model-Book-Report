@@ -1,79 +1,23 @@
-# wandb:
-#   action: store_true
-#   help: log to wandb
-# num_samples:
-#   type: int
-#   help: number of samples to use
-# data_path:
-#   type: str
-#   default: data/all.csv
-#   help: path to data
-# model_a_column:
-#   type: str
-#   default: human_answers
-#   help: column name for model A
-# model_b_column:
-#   type: str
-#   default: chatgpt_answers
-#   help: column name for model B
-# k:
-#   type: int
-#   default: 3
-#   help: number of clusters
-# batch_size:
-#   type: int
-#   default: 50
-#   help: batch size for LLM
-# num_eval:
-#   type: int
-#   default: 3
-#   help: model to use
-# oz:
-#   action: store_true
-#   help: use oz prompt
-# dummy_eval:
-#   action: store_true
-#   help: use dummy eval prompt
-# embedding_model:
-#   type: str
-#   default: text-embedding-3-small
-#   help: embedding model to use
-# seed:
-#   type: int
-#   default: 42
-#   help: random seed
-# group_column:
-#   type: str
-# cluster_method:
-#   type: str
-#   default: hierarchical
-#   help: clustering method
-# ranker:
-#   type: str
-#   default: LLMOnlyRanker
-#   help: ranker to use
-# proposer:
-#   type: str
-#   default: LLMPairwiseProposerWithQuestion
-#   help: proposer to use
-# reducer:
-#   type: str
-#   default: AxisReducer
-#   help: reducer to use
-# proposer_batch_size:
-#   type: str
-#   default: 5
-#   help: batch of questions to get differences for
 data_path: data/all.csv
+output_name: False
 model_a_column: human_answers
 model_b_column: chatgpt_answers
 k: 3
 batch_size: 50
 num_eval: 3
+num_axes_generated: 10
 embedding_model: text-embedding-3-small
 seed: 42
 cluster_method: hierarchical
 ranker: LLMOnlyRanker
-proposer: LLMPairwiseProposerWithQuestion
-reducer: AxisReducer
 proposer_batch_size: 5
+proposer_only: False
+oz: False
+dummy_eval: False
+proposer: LLMProposerMultiModel
+reducer: AxisReducer
+sampler: ClusterSampler
+num_topic_clusters: 5
+test: False
+save_dir: pipeline_results
+early_stopping: True

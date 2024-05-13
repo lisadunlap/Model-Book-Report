@@ -7,7 +7,7 @@ from serve.utils_llm import get_llm_output
 
 df = pd.read_csv("data/arena/kaggle.csv")
 print(len(df))
-df = df.sample(5000, random_state=42)
+df = df.sample(10000, random_state=42)
 # convert to records
 df = df.to_dict("records")
 
@@ -76,13 +76,13 @@ for i in tqdm(range(len(df))):
     logs.append({"question": example_question, "response": ans, "category": category, "subcategory": subcategory})
 
 # save logs to json
-with open("classify_questions_kaggle.json", "w") as f:
+with open("classify_questions_kaggle_10k.json", "w") as f:
     json.dump(logs, f, indent=4)
 
 
 
 import wandb
-run = wandb.init(project="KaggleVibeCheck", entity="lisabdunlap")
+run = wandb.init(project="KaggleVibeCheck", entity="lisadunlap")
 # log logs table
 wandb.log({"logs": wandb.Table(dataframe=pd.DataFrame(logs))})
 run.finish()
