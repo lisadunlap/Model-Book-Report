@@ -16,14 +16,16 @@ embedding_model: text-embedding-3-small
 seed: 42
 cluster_method: hierarchical
 ranker: MuliRubricRankerJury
-sampler: ClusterSampler
+# sampler: ClusterSampler
+sampler: Sampler
 reducer: AxisReducer
 proposer: LLMProposerMultiModel
 num_topic_clusters: 5
 heldout_percentage: 0.75
-proposer_batch_size: 10
+proposer_batch_size: 5
 judges: [claude-3-haiku-20240307, llama-3-8b, llama-3-70b]
-models: ['friendly-and-personable', 'cold-and-factual', 'storyteller', 'organized', 'safety-concious', 'conspiracy-theorist', 'funny', 'imaginative', 'anotagonistic']
+models: ['base', 'funny']
+# models: ['base', 'friendly-and-personable', 'cold-and-factual', 'storyteller', 'organized', 'safety-concious', 'conspiracy-theorist', 'funny', 'imaginative', 'anotagonistic']
 # models: [A, B]
 eval_only: False
 axes: False

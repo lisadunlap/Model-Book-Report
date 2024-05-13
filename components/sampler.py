@@ -29,9 +29,18 @@ def get_example_prompt(prompts):
     """
     Given a list of prompts, generate a new prompt which is similar to the examples.
     """
-    example_generation_prompt = f"Given the following example prompts, generate a new prompt: {prompts}\nPROMPT:"
-    response = get_llm_output(example_generation_prompt.format(prompts="/n".join(prompts[:5])), model="gpt-4")
-    return {"example_generation_prompt": example_generation_prompt, "response": response}
+    example_generation_prompt = """Given the following example prompts, generate a new prompt that is from a similar domain.
+
+    Examples:
+    {prompts}
+
+    Please generate a new prompt that is similar to the examples provided and that is liekeley to lead to an answer which is under 50 words.
+    
+    PROMPT:"""
+
+    prompt = example_generation_prompt.format(prompts="/n".join(prompts[:5]))
+    response = get_llm_output(prompt, model="gpt-4")
+    return {"example_generation_prompt": prompt, "response": response}
     
 
 class Sampler:

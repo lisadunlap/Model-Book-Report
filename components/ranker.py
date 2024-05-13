@@ -70,7 +70,7 @@ class RubricRanker(Ranker):
         self.diff_proposer = LLMProposer(args)
 
     @staticmethod
-    def generate_rubric(axis):
+    def generate_rubric(axis, running_example=False):
 
         prompt = """I am performing qualitative analysis on LLM outputs. I have an axis in which I would like to generate a rubric that I could give a person such that they can rate a prompt-output pair on a scale of -2 to 2 on this axis. 
 
@@ -85,7 +85,23 @@ class RubricRanker(Ranker):
         Definition: {{definition}}
         Example: {{example}}"""
 
-        prompt = prompt.format(axis=axis)
+        prompt_running_example = """I am performing qualitative analysis on LLM outputs. I have an axis in which I would like to generate a rubric that I could give a person such that they can rate a prompt-output pair on a scale of -2 to 2 on this axis.
+
+        Here is my axis name along with what it means to be high or low on this axis:
+        {axis}
+
+        Please be clear and specific for your definitions of what makes a prompt-output pair a score of -2, -1, 0, etc. To assist understanding, please provide a examples of what a -2, -1, 0, 1, 2 would look like on the prompt below. Please ensure this rubric is easy to understand by people and would result in the same scores across multiple human graders, and encourage users to vote a sample as 0 sparingly, as we want to see the differences between the models.
+
+        Here is the prompt:
+        {running_example}
+
+        Please provide your thought process when creating the rubric before providing the rubric. Please structure your response with "Rubric of {{axis name}}" as the title and the scores in the following format:
+
+        Score {{-2, -1, 0, 1, 2}}: {{description}}
+        Definition: {{definition}}
+        Example: {{example}}"""
+
+        prompt = prompt.format(axis=axis) if not running_example else prompt_running_example.format(axis=axis, running_example=running_example)
 
         rubric_output = get_llm_output(prompt, model="gpt-4-0125-preview")
 
@@ -437,12 +453,12 @@ class MuliRubricRankerJury(RubricRankerJury):
             judge_outputs.append(model_outputs)
         return judge_outputs
     
-    def score_hypothesis(self, hypothesis: str, dataset: List[dict], axis_to_topic: dict, topic_to_example: dict = None) -> List[float]:
+    def score_hypothesis(self, hypothesis: str, dataset: List[dict], axis_to_topic: dict, topic_example: str = None) -> List[float]:
         """
         Generate rubric for each hypothesis
         """
         print(f"Scoring hypothesis {hypothesis}")
-        rubric, logs = self.generate_rubric(hypothesis)
+        rubric, logs = self.generate_rubric(hypothesis, topic_example)
         judge_scores = {f"Judge_{i}_scores": [] for i in range(self.num_judges)} 
         judge_scores["avg_scores"] = []
         judge_scores["avg_diff_scores"] = []
@@ -466,15 +482,15 @@ class MuliRubricRankerJury(RubricRankerJury):
             dataset_scores.append(row)
         return judge_scores, dataset_scores, logs
     
-    def score(self, axes: List[str], dataset: List[dict], axis_to_topic: dict, topic_to_example: dict = None):
+    def score(self, axes: List[str], dataset: List[dict], axis_to_topic: dict, topic_to_example: pd.DataFrame = pd.DataFrame()):
         all_dataset_scores, all_logs, axis_metrics = [], [], []
         print(f"axes: {axes}")
         for axis in axes:
             topics = axis_to_topic[axis_to_topic["axis"] == axis].iloc[0]["topic"]
             print(topics)
-            topic_sample = topic_to_example[topic] if topic_to_example else None
             for topic in topics:
                 print(f"Scoring for axis {axis} for topic {topic}")
+                topic_sample = topic_to_example[topic_to_example["topic"] == topic].iloc[0]['example'] if len(topic_to_example) > 0 else None
                 axis_dataset = [d for d in dataset if d["topic"] == topic]
                 if self.args.early_stopping:
                     # try on 10 rows, if the score differences are < 0.1, continue
@@ -484,11 +500,11 @@ class MuliRubricRankerJury(RubricRankerJury):
                     print([np.abs(metrics[f"Judge_avg_{model}_mean_diff"]) for model in self.args.models])
                     mean_dff = np.max([np.abs(metrics[f"Judge_avg_{model}_mean_diff"]) for model in self.args.models])
                     print(mean_dff)
-                    if mean_dff < 0.1:
+                    if mean_dff < self.args.early_stopping_threshold:
                         print(f"Skipping topic {topic} for axis {axis}")
                         continue
 
-                scores, dataset_scores, logs = self.score_hypothesis(axis, axis_dataset, axis_to_topic, topic_to_example, topic_sample)
+                scores, dataset_scores, logs = self.score_hypothesis(axis, axis_dataset, axis_to_topic, topic_sample)
                 all_dataset_scores.append(pd.DataFrame(dataset_scores))
                 all_logs.append(logs)
                 metrics = self.compute_metrics(axis, scores, topic)

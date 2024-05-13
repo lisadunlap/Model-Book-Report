@@ -21,3 +21,5 @@ num_topic_clusters: 5
 test: False
 save_dir: pipeline_results
 early_stopping: True
+topic_based_rubric_example: False
+early_stopping_threshold: 0.1

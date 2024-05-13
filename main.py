@@ -30,12 +30,9 @@ import components.reducer as reducers
 import components.sampler as samplers
 
 
-def get_save_str(args,num_samples):
-    # get first 3 letters of ech model if length is too long (>50)
-    model_group = '-'.join(args.models).replace(' ', '')
-    model_group = '-'.join([x[:3] for x in args.models]).replace(' ', '') if len(model_group) > 50 else model_group
+def get_save_str(args,num_samples, model_group):
     # create str of datapath for savins
-    save_str = args.data_path.split("/")[-1].split(".")[0] + "_per_topic"
+    save_str = args.data_path.split("/")[-1].split(".")[0]
     save_str = f"{save_str}/{args.output_name}" if args.output_name else save_str
     save_str = f"{save_str}/{args.proposer}-{args.sampler}_{args.num_topic_clusters}-{args.ranker}"
     tag = f"{model_group}_k{args.k}_seed{args.seed}" if not args.num_samples else f"{model_group}_{args.k}_samples{num_samples}_seed{args.seed}"
@@ -87,9 +84,9 @@ def main():
 
     # # model_group = '-'.join(args.models).replace(' ', '')[:30]
     # # get first 3 letters of ech model if length is too long (>50)
-    # model_group = '-'.join(args.models).replace(' ', '')
-    # model_group = '-'.join([x[:3] for x in args.models]).replace(' ', '') if len(model_group) > 50 else model_group
-    # wandb.init(project=proj_name, entity="lisadunlap", config=dict(args), group=model_group, name=f"{args.group_column}")
+    model_group = '-'.join(args.models).replace(' ', '')
+    model_group = '-'.join([x[:3] for x in args.models]).replace(' ', '') if len(model_group) > 50 else model_group
+    wandb.init(project=proj_name, entity="lisadunlap", config=dict(args), group=model_group, name=f"{args.group_column}")
 
     # # create str of datapath for savins
     # num_samples = min(args.num_samples, df.shape[0]) if args.num_samples else df.shape[0]
@@ -104,7 +101,7 @@ def main():
     #     os.makedirs(f"{args.save_dir}/{save_str}", exist_ok=True)
 
     num_samples = min(args.num_samples, df.shape[0]) if args.num_samples else df.shape[0]
-    save_str, tag = get_save_str(args, num_samples)
+    save_str, tag = get_save_str(args, num_samples, model_group)
 
     # randomly sample 10 rows, set random seed for reproducibility
     if args.num_samples:
@@ -140,7 +137,7 @@ def main():
         topic_to_example = {"topic": [], "example": [], "prompt": []} if args.topic_based_rubric_example else None
         if args.topic_based_rubric_example:
             for topic in df.topic.unique():
-                rubric_example = sampler.get_example_prompt(proposal_df["question"].tolist())
+                rubric_example = samplers.get_example_prompt(proposal_df[proposal_df["topic"] == topic]["question"].tolist())
                 print(f"Rubric Example for topic {topic}\n{rubric_example}\n-------------------")
                 topic_to_example["topic"].append(topic)
                 topic_to_example["example"].append(rubric_example["response"])
