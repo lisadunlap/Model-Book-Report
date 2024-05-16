@@ -11,6 +11,7 @@ from tqdm import tqdm, trange
 import re
 import itertools
 import plotly.graph_objects as go
+import plotly.express as px
 
 import wandb
 from serve.utils_clip import get_embeddings
@@ -69,8 +70,7 @@ class RubricRanker(Ranker):
         random.seed(args.seed)
         self.diff_proposer = LLMProposer(args)
 
-    @staticmethod
-    def generate_rubric(axis, running_example=False):
+    def generate_rubric(self, axis, running_example=False, example=True):
 
         prompt = """I am performing qualitative analysis on LLM outputs. I have an axis in which I would like to generate a rubric that I could give a person such that they can rate a prompt-output pair on a scale of -2 to 2 on this axis. 
 
@@ -85,12 +85,24 @@ class RubricRanker(Ranker):
         Definition: {{definition}}
         Example: {{example}}"""
 
+        prompt_no_running_example = """I am performing qualitative analysis on LLM outputs. I have an axis in which I would like to generate a rubric that I could give a person such that they can rate a prompt-output pair on a scale of -2 to 2 on this axis.
+
+        Here is my axis name along with what it means to be high or low on this axis:
+        {axis}
+
+        Please be clear and specific for your definitions of what makes a prompt-output pair a score of -2, -1, 0, 1, or 2. Please ensure this rubric is easy to understand by people and would result in the same scores across multiple human graders.
+
+        Please provide your thought process when creating the rubric before providing the rubric. Please structure your response with "Rubric of {{axis name}}" as the title and the scores in the following format:
+        
+        Score {{-2, -1, 0, 1, 2}}: {{description}}
+        Definition: {{definition}}"""
+
         prompt_running_example = """I am performing qualitative analysis on LLM outputs. I have an axis in which I would like to generate a rubric that I could give a person such that they can rate a prompt-output pair on a scale of -2 to 2 on this axis.
 
         Here is my axis name along with what it means to be high or low on this axis:
         {axis}
 
-        Please be clear and specific for your definitions of what makes a prompt-output pair a score of -2, -1, 0, etc. To assist understanding, please provide a examples of what a -2, -1, 0, 1, 2 would look like on the prompt below. Please ensure this rubric is easy to understand by people and would result in the same scores across multiple human graders, and encourage users to vote a sample as 0 sparingly, as we want to see the differences between the models.
+        Please be clear and specific for your definitions of what makes a prompt-output pair a score of -2, -1, 0, 1, or 2. To assist understanding, please provide a examples of what a -2, -1, 0, 1, 2 would look like on the prompt below. Please ensure this rubric is easy to understand by people and would result in the same scores across multiple human graders, and encourage users to vote a sample as 0 sparingly, as we want to see the differences between the models.
 
         Here is the prompt:
         {running_example}
@@ -101,16 +113,47 @@ class RubricRanker(Ranker):
         Definition: {{definition}}
         Example: {{example}}"""
 
-        prompt = prompt.format(axis=axis) if not running_example else prompt_running_example.format(axis=axis, running_example=running_example)
+        assert_prompt = """I have an LLM generated ribric for ranking prompt-output pairs on the following axis: {axis}. I would like to verify that the rubric is clear and easy to understand. Please review the rubric and provide feedback on the following:
 
-        rubric_output = get_llm_output(prompt, model="gpt-4-0125-preview")
+        1. Is the rubric rating scale clear and easy to understand?
+        2. Does the rubric provide a description for each score (-2, -1, 0, 1, and 2)?
+        3. Does the rubric provide a clear example for each score?
+        4. Does the description of each score align with the example provided?
+        5. Could a group of people use this rubric to score prompt-output pairs and get consistent results?
+
+        Here is the rubric:
+
+        {rubric}
+
+        Please provide your feedback in the following format:
+        1. {{feedback}}
+        2. {{feedback}}
+        3. {{feedback}}
+        4. {{feedback}}
+        5. {{feedback}}
+        """
+        
+        if not example:
+            print("Generating rubric without example")
+            prompt = prompt_no_running_example.format(axis=axis)
+        elif not running_example:
+            prompt = prompt.format(axis=axis)
+        else:
+            prompt = prompt_running_example.format(axis=axis, running_example=running_example)
+        # prompt = prompt.format(axis=axis) if not running_example else prompt_running_example.format(axis=axis, running_example=running_example)
+            
+        rubric_output = get_llm_output(prompt, model=self.args.rubric_generation_model)
 
         convert_prompt = """Below is the output of an LLM asked to generate a rubric. I want to feed this rubric directly into an LLM to score items and remove any beginning or end paragraphs talking to the user about the creation of the rubric. Please extract the rubric from the following text:
         {output}
         
         Please do not make any edits to the rubric itself. Please output only the rubric."""
         converted = get_llm_output(convert_prompt.format(output=rubric_output), model="gpt-4")
-        return converted, {"axis": axis, "rubric": rubric_output, "converted_rubric": converted}
+        check = get_llm_output(assert_prompt.format(axis=axis, rubric=converted), model="gpt-4")
+        print(converted)
+        print("-------------")
+        print(check)
+        return converted, {"axis": axis, "rubric": rubric_output, "converted_rubric": converted, "check": check}
 
     def get_score(self, row, axis, rubric, dummy_eval=False):
         if dummy_eval:
@@ -453,12 +496,16 @@ class MuliRubricRankerJury(RubricRankerJury):
             judge_outputs.append(model_outputs)
         return judge_outputs
     
-    def score_hypothesis(self, hypothesis: str, dataset: List[dict], axis_to_topic: dict, topic_example: str = None) -> List[float]:
+    def score_hypothesis(self, hypothesis: str, dataset: List[dict], axis_to_topic: dict, topic_example: str = None, rubric: str =None) -> List[float]:
         """
         Generate rubric for each hypothesis
         """
         print(f"Scoring hypothesis {hypothesis}")
-        rubric, logs = self.generate_rubric(hypothesis, topic_example)
+        if rubric is None:
+            rubric, logs = self.generate_rubric(hypothesis, topic_example)
+        else:
+            print(rubric)
+            logs = {}
         judge_scores = {f"Judge_{i}_scores": [] for i in range(self.num_judges)} 
         judge_scores["avg_scores"] = []
         judge_scores["avg_diff_scores"] = []
@@ -482,29 +529,27 @@ class MuliRubricRankerJury(RubricRankerJury):
             dataset_scores.append(row)
         return judge_scores, dataset_scores, logs
     
-    def score(self, axes: List[str], dataset: List[dict], axis_to_topic: dict, topic_to_example: pd.DataFrame = pd.DataFrame()):
+    def score(self, axes: List[str], dataset: List[dict], axis_to_topic: dict, topic_to_example: pd.DataFrame = pd.DataFrame(), rubric: pd.DataFrame = pd.DataFrame()):
         all_dataset_scores, all_logs, axis_metrics = [], [], []
         print(f"axes: {axes}")
         for axis in axes:
             topics = axis_to_topic[axis_to_topic["axis"] == axis].iloc[0]["topic"]
-            print(topics)
+
             for topic in topics:
                 print(f"Scoring for axis {axis} for topic {topic}")
-                topic_sample = topic_to_example[topic_to_example["topic"] == topic].iloc[0]['example'] if len(topic_to_example) > 0 else None
+                rubric_text = rubric[rubric["axis"] == axis].iloc[0]["converted_rubric"] if len(rubric) > 0 else None
+                topic_sample = topic_to_example[topic_to_example["topic"] == topic].iloc[0]['example'] if (topic_to_example is not None and len(topic_to_example) > 0) else None
                 axis_dataset = [d for d in dataset if d["topic"] == topic]
                 if self.args.early_stopping:
                     # try on 10 rows, if the score differences are < 0.1, continue
-                    scores, dataset_scores, logs = self.score_hypothesis(axis, axis_dataset[:10], axis_to_topic, topic_sample)
+                    scores, dataset_scores, logs = self.score_hypothesis(axis, axis_dataset[:10], axis_to_topic, topic_sample, rubric_text)
                     metrics = self.compute_metrics(axis, scores, topic)
-                    print("LISA LOOK HERE")
-                    print([np.abs(metrics[f"Judge_avg_{model}_mean_diff"]) for model in self.args.models])
-                    mean_dff = np.max([np.abs(metrics[f"Judge_avg_{model}_mean_diff"]) for model in self.args.models])
-                    print(mean_dff)
+                    mean_dff = np.max([np.abs(metrics[f"Judge_avg_{model}_mean_diff_sign"]) for model in self.args.models])
                     if mean_dff < self.args.early_stopping_threshold:
                         print(f"Skipping topic {topic} for axis {axis}")
                         continue
 
-                scores, dataset_scores, logs = self.score_hypothesis(axis, axis_dataset, axis_to_topic, topic_sample)
+                scores, dataset_scores, logs = self.score_hypothesis(axis, axis_dataset, axis_to_topic, topic_sample, rubric_text)
                 all_dataset_scores.append(pd.DataFrame(dataset_scores))
                 all_logs.append(logs)
                 metrics = self.compute_metrics(axis, scores, topic)
@@ -513,12 +558,14 @@ class MuliRubricRankerJury(RubricRankerJury):
             return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
         return pd.DataFrame(axis_metrics), pd.concat(all_dataset_scores), pd.DataFrame(all_logs)
     
+    
     def compute_metrics(self, axis, scores, topic="all"):
         from sklearn.metrics import cohen_kappa_score
         from itertools import combinations
         metrics = {"axis": axis}
         # Prepare data for Fleiss' Kappa
         category_labels = [-2, -1, 0, 1, 2]
+        self.plot_score_distribution(axis, topic, scores, self.args.models)
         
         for m, model in enumerate(self.args.models):
             score_counts = np.zeros((len(scores[next(iter(scores))]), len(category_labels)))  # Rows are items, columns are categories
@@ -540,18 +587,27 @@ class MuliRubricRankerJury(RubricRankerJury):
                 model_avg_score = np.average(scores_list, axis=1)
                 score_diff = scores_model - model_avg_score
                 
-                metrics[f"Judge_{judge}_{model}_mean_score"] = np.average(scores_model)
-                metrics[f"Judge_{judge}_{model}_std_score"] = np.std(scores_model)
-                metrics[f"Judge_{judge}_{model}_mean_diff"] = np.mean(score_diff)
+                metrics[f"Judge_{judge}_{model}_mean_score"] = np.round(np.average(scores_model), 3)
+                metrics[f"Judge_{judge}_{model}_mean_diff"] = np.round(np.mean(score_diff), 3)
+                metrics[f"Judge_{judge}_{model}_mean_diff_sign"] = np.round(np.mean(np.sign(score_diff)), 3)
+
             
             # compute stats for majority_score
+            if len(scores_model) == 0:
+                raise ValueError(f"No scores found for axis {axis}")
             scores_list = np.array(scores["avg_scores"])
             scores_model = scores_list[:, m]
             model_avg_score = np.average(scores_list, axis=1)
             score_diff = scores_model - model_avg_score
-            metrics[f"Judge_avg_{model}_mean_score"] = np.average(scores_model)
-            metrics[f"Judge_avg_{model}_std_score"] = np.std(scores_model)
-            metrics[f"Judge_avg_{model}_mean_diff"] = np.mean(score_diff)
+            metrics[f"Judge_avg_{model}_mean_score"] = np.round(np.average(scores_model), 3)
+            metrics[f"Judge_avg_{model}_mean_diff"] =  np.round(np.mean(score_diff), 3)
+            metrics[f"Judge_avg_{model}_mean_diff_sign"] = np.round(np.mean(np.sign(score_diff)), 3)
+            print(f"Judge_avg_{model}_mean_diff_sign: {np.sign(score_diff)} \t {type(np.sign(score_diff))}")
+            # get normalized value counts of scores
+            metrics[f"Judge_avg_{model}_mean_score_counts"] = str({i: np.round(np.sum(scores_model == i)/len(scores_model), 2) for i in range(-2, 3)})
+            metrics[f"Judge_avg_{model}_mean_diff_counts"] = str({i: np.round(np.sum(score_diff == i)/len(score_diff), 2) for i in range(-5, 6)})
+            metrics[f"Judge_avg_{model}_mean_diff_sign_counts"] = str({i: np.round(np.sum(np.sign(score_diff) == i)/len(score_diff), 2) for i in range(-1, 2)})
+            # plot the distribution of scores
 
         # do a paired t_test for the per-sample scores averaged across judges for each set of models
         model_pairs = list(combinations(self.args.models, 2))
@@ -563,41 +619,37 @@ class MuliRubricRankerJury(RubricRankerJury):
             t_statistic, p_value = ttest_rel(scores_1, scores_2)
             metrics[f"t_statistic_{model_1}_{model_2}"] = t_statistic
             metrics[f"p_value_{model_1}_{model_2}"] = p_value
+            t_statistic_sign, p_value_sign = ttest_rel(np.sign(scores_1), np.sign(scores_2))
+            metrics[f"t_statistic_sign_{model_1}_{model_2}"] = t_statistic_sign
+            metrics[f"p_value_sign_{model_1}_{model_2}"] = p_value_sign
+
         metrics["support"] = len(scores_list)
         metrics["topic"] = topic
 
         return metrics
     
-# class MuliRubricRankerJuryTopicSpecific(MuliRubricRankerJury):
-    
-#     def score_hypothesis(self, hypothesis: str, dataset: List[dict], axis_to_topic: dict) -> List[float]:
-#         """
-#         Generate rubric for each hypothesis
-#         """
-#         print(f"Scoring hypothesis {hypothesis}")
-#         rubric, logs = self.generate_rubric(hypothesis)
-#         judge_scores = {f"Judge_{i}_scores": [] for i in range(self.num_judges)} 
-#         judge_scores["avg_scores"] = []
-#         judge_scores["avg_diff_scores"] = []
-#         dataset_scores = []
-#         for row in tqdm(dataset):
-#         # for row in dataset:
-#             scores = self.get_score(row, hypothesis, rubric, dummy_eval=self.args.dummy_eval)
-#             if scores is not None:
-#                 for i, score in enumerate(scores):
-#                     row[f'Judge_{i}_scores_reasoning'] = score
-#                     row[f"Judge_{i}_score"] = [self.extract_scores(s) for s in score]
-#                     row[f"Judge_{i}_diff_score"] = [row[f"Judge_{i}_score"][j] - np.mean(row[f"Judge_{i}_score"]) for j in range(len(row[f"Judge_{i}_score"]))]
-#                     row["axis"] = hypothesis
-#                     judge_scores[f"Judge_{i}_scores"].append(row[f"Judge_{i}_score"])
-#             else:
-#                 print("No scores found")
-#             row["avg_scores"] = aggregate_scores(np.array([row[f"Judge_{i}_score"] for i in range(self.num_judges)]))["Average Score"]
-#             row["avg_diff_scores"] = aggregate_scores(np.array([row[f"Judge_{i}_diff_score"] for i in range(self.num_judges)]))["Average Score"]
-#             judge_scores["avg_scores"].append(row["avg_scores"])
-#             judge_scores["avg_diff_scores"].append(row["avg_diff_scores"])
-#             dataset_scores.append(row)
-#         return judge_scores, dataset_scores, logs
+    @staticmethod
+    def plot_score_distribution(axis, topic, scores, models):
+        plotting_data = {"model": [], "score": []}
+        for m, model in enumerate(models):
+            scores_list = np.array(scores["avg_scores"])
+            scores_model = scores_list[:, m]
+            plotting_data["model"].extend([model] * len(scores_model))
+            plotting_data["score"].extend(scores_model)
+
+        # Convert the plotting data to DataFrame
+        df = pd.DataFrame(plotting_data)
+
+        # Plot using seaborn's countplot
+        plt.figure(figsize=(10, 6))
+        ax = sns.countplot(data=df, x='score', hue='model', palette='viridis')
+        ax.set_title(f"{topic} - {axis} Scores Distribution")
+        plt.legend(title='Model')
+
+        # Log the plot to W&B
+        fig = ax.get_figure()
+        wandb.log({f"{topic}_{axis.split(':')[0]}_scores": wandb.Image(fig)})
+        plt.close(fig)
     
 class JuryRanker(MuliRubricRankerJury):
 
@@ -634,7 +686,7 @@ class JuryRanker(MuliRubricRankerJury):
             judge_outputs.append(model_outputs)
         return judge_outputs
     
-    def score_hypothesis(self, hypothesis: str, dataset: List[dict], axis_to_topic: dict) -> List[float]:
+    def score_hypothesis(self, hypothesis: str, dataset: List[dict], **kwargs) -> List[float]:
         """
         Generate rubric for each hypothesis
         """
@@ -661,4 +713,56 @@ class JuryRanker(MuliRubricRankerJury):
             judge_scores["avg_diff_scores"].append(row["avg_diff_scores"])
             dataset_scores.append(row)
         return judge_scores, dataset_scores, {}
+    
+class RelativeRanker(JuryRanker):
+    """
+    Scores by saying which model fits the description better
+    """
+
+    def extract_scores(self, output):
+        """parse out the score from the output of the following format
+            Analysis: {{reasoning}}
+            Model: {{A or B}}
+        """
+        score_pattern = re.compile(r'Model: (A|B)', re.IGNORECASE)
+        score = score_pattern.findall(output)
+        if len(score) == 0:
+            print(f"Error extracting scores from text: {output}")
+            return 0
+        if score[0] == "A" or score[0] == "a":
+            return 1
+        elif score[0] == "B" or score[0] == "b":
+            return -1
+        else:
+            raise ValueError(f"Invalid score: {score[0]}")
+
+    def get_score(self, row, axis, dummy_eval=False):
+        if dummy_eval:
+            return ["Analysis: Because I said so\nScore: 0"]  * len(self.args.models)
+            
+        prompt = """I want to compare the outputs of two lamgauge models (A and B) for the same prompt. I would like you to evaluate where each output falls on the following axis: {axis}. 
+
+        If you had to choose which output is higher on the axis, which would you choose? Here is the prompt and the outputs of A and B respectively:
+
+        {prompt}
+        
+        Please respond with which model you think is higher on the axis and explain your reasoning. Use the following format for your response:
+
+        Analysis: {{reasoning}}
+        Model: {{A or B}}
+        """
+
+        judge_systems_prompt = "You are a fair and objective judge of model outputs. Your evaluations are clear, concise, and free from exaggerative language. You strictly adhere to the format and guidelines provided by the user, ensuring each decision is well-supported by the evidence within the outputs themselves."
+        judge_outputs = []
+        for judge in self.args.judges:
+            print(f"Getting judgement for Judge = {judge}")
+            model_outputs = []
+            for model in self.args.models:
+                model_a, model_b = model, [m for m in self.args.models if m != model][0]
+                scoring_prompt = prompt.format(axis=axis, prompt=f"Prompt: {row['question']}\nOutput A: {row[model_a]}\nOutput B: {row[model_b]}")
+                output_a = get_llm_output(scoring_prompt, model=judge, system_prompt=judge_systems_prompt)
+                # score = self.parse_output(output_a)
+                model_outputs.append(output_a)
+            judge_outputs.append(model_outputs)
+        return judge_outputs
     

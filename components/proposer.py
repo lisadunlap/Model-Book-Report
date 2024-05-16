@@ -391,7 +391,7 @@ class LLMProposerMultiModel(LLMBatchProposer):
             prompt = oz_proposer_prompt.format(text=texts, axes="\n".join([f"* {axis}" for axis in oz_axes]))
         else:
             prompt = proposer_prompt.format(text=texts)
-        response = get_llm_output(prompt, model="claude-3-opus-20240229", system_prompt=self.systems_prompt).replace("**", "")
+        response = get_llm_output(prompt, model=self.args.proposer_model, system_prompt=self.systems_prompt).replace("**", "")
         if "LLM Error" in response:
             exit(0)
         axis_prompt = axis_convert.format(axes=response)

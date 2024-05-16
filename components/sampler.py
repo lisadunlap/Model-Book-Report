@@ -23,6 +23,15 @@ import torch
 import torchvision
 
 from serve.utils_llm import get_llm_output, get_llm_embedding
+
+# example_generation_prompt = """Given the following example prompts, generate a new prompt that is from a similar domain.
+
+# Examples:
+# {prompts}
+
+# Please generate a new prompt that is similar to the examples provided and that is liekeley to lead to an answer which is under 50 words.
+
+# PROMPT:"""
     
     
 def get_example_prompt(prompts):
@@ -34,11 +43,12 @@ def get_example_prompt(prompts):
     Examples:
     {prompts}
 
-    Please generate a new prompt that is similar to the examples provided and that is liekeley to lead to an answer which is under 50 words.
-    
+    Please generate a new prompt that is similar to the examples provided and that is likely to lead to an answer which is under 20 words.
+
     PROMPT:"""
 
-    prompt = example_generation_prompt.format(prompts="/n".join(prompts[:5]))
+    prompt = example_generation_prompt.format(prompts="\n".join(prompts[:5]))
+    # prompt = example_generation_prompt.format(prompts="/n".join(prompts)s)
     response = get_llm_output(prompt, model="gpt-4")
     return {"example_generation_prompt": prompt, "response": response}
     
@@ -140,4 +150,16 @@ class ClusterSampler(Sampler):
         print(summary_dict)
         return [summary_dict[anon_labels[l]] for l in labels], {"centroids": centroid, "summary": list(summary_dict.values())}
 
-
+def match_set_to_centroids(df, topic_centroids={}):
+    if not topic_centroids:
+        return ["all"] * len(df)
+    # match each item in the set to the closest centroid
+    model = INSTRUCTOR('hkunlp/instructor-xl')
+    instruction = "Cluster based on question topics and summarize the cluster."
+    df["embedding"] = df["question"].apply(lambda x: model.encode([[instruction,x]])[0])
+    embeddings = np.stack(df["embedding"].values)
+    names, centroids = topic_centroids['summary'], np.stack(topic_centroids['centroids'])
+    print(f"{embeddings.shape} {centroids.shape}")
+    distances = cdist(embeddings, centroids, metric='cosine')
+    idxs = np.argmin(distances, axis=1)
+    return [names[i] for i in idxs]

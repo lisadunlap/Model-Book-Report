@@ -28,6 +28,12 @@ import components.ranker as rankers
 import components.proposer as proposers
 import components.reducer as reducers
 import components.sampler as samplers
+from components.sampler import match_set_to_centroids
+
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import classification_report
 
 
 def get_save_str(args,num_samples, model_group):
@@ -42,6 +48,25 @@ def get_save_str(args,num_samples, model_group):
     if not os.path.exists(f"{args.save_dir}/{save_str}"):
         os.makedirs(f"{args.save_dir}/{save_str}", exist_ok=True)
     return save_str, tag
+
+def load_experiment(results_dir, tag):
+    results = pd.read_json(f"{results_dir}/{tag}-eval-results.json")
+    axis_to_topic = pd.read_json(f"{results_dir}/{tag}-axes_to_topic.json", orient='records')
+    eval_axes = results['axis'].value_counts().index.tolist()
+    print(f"\n\n{results['axis'].value_counts()}\n{eval_axes}\n\n")
+    if os.path.exists(f"{results_dir}/{tag}-topic_to_example.json"):
+        topic_to_example = pd.read_json(f"{results_dir}/{tag}-topic_to_example.json", orient='records')
+    else:
+        topic_to_example = None
+    if os.path.exists(f"{results_dir}/{tag}-topic-centroids.np.npy"):
+        topic_centroids = np.load(f"{results_dir}/{tag}-topic-centroids.np.npy", allow_pickle=True).item()
+    else:
+        topic_centroids = None
+    if os.path.exists(f"{results_dir}/{tag}-scoring-logs.json"):
+        rubric = pd.read_json(f"{results_dir}/{tag}-scoring-logs.json")
+    else:
+        rubric = pd.DataFrame()
+    return results, eval_axes, axis_to_topic, topic_to_example, topic_centroids, rubric
 
 import argparse
 def main():
@@ -73,8 +98,6 @@ def main():
     # remove duplicate question-answer
     df.drop_duplicates(subset=args.models, inplace=True)
 
-    
-
     if args.group_column:
         groups = df[args.group_column].unique()
         print(f"Running VibeCheck on group {args.group_column}({groups})")
@@ -88,24 +111,16 @@ def main():
     model_group = '-'.join([x[:3] for x in args.models]).replace(' ', '') if len(model_group) > 50 else model_group
     wandb.init(project=proj_name, entity="lisadunlap", config=dict(args), group=model_group, name=f"{args.group_column}")
 
-    # # create str of datapath for savins
-    # num_samples = min(args.num_samples, df.shape[0]) if args.num_samples else df.shape[0]
-    # save_str = args.data_path.split("/")[-1].split(".")[0] 
-    # save_str = f"{save_str}/{args.output_name}" if args.output_name else save_str
-    # save_str = f"{save_str}/{args.proposer}-{args.sampler}_{args.num_topic_clusters}-{args.ranker}"
-    # tag = f"{model_group}_k{args.k}_seed{args.seed}" if not args.num_samples else f"{model_group}_{args.k}_samples{num_samples}_seed{args.seed}"
-    # tag = f"{tag}_oz" if args.oz else tag
-    # tag = f"{tag}_dummy_eval" if args.dummy_eval else tag
-    # tag = f"{tag}_axes_provided" if args.axes else tag
-    # if not os.path.exists(f"{args.save_dir}/{save_str}"):
-    #     os.makedirs(f"{args.save_dir}/{save_str}", exist_ok=True)
-
     num_samples = min(args.num_samples, df.shape[0]) if args.num_samples else df.shape[0]
+    num_samples = 10 if args.test else num_samples
     save_str, tag = get_save_str(args, num_samples, model_group)
 
     # randomly sample 10 rows, set random seed for reproducibility
-    if args.num_samples:
-        df = df.sample(num_samples, random_state=args.seed)
+    if args.num_samples or args.test:
+        if args.new_sample:
+            df = df.sample(frac=1, random_state=args.seed).reset_index(drop=True)[:num_samples]
+        else:
+            df = df.sample(num_samples, random_state=args.seed)
 
     old_df = df
     df = df[['question', *args.models]]
@@ -121,6 +136,7 @@ def main():
     topics, centroids = sampler.sample(df)
     np.save(f"{args.save_dir}/{save_str}/{tag}-topic-centroids.np", centroids)
     df["topic"] = topics
+    rubric = pd.DataFrame()
 
     print(f"Running a VibeCheck on {len(df)} samples")
     if args.eval_only:
@@ -129,7 +145,7 @@ def main():
         print(f"Running eval on {len(args.axes)} axes : {args.axes}")
     else:
         # sample at most 20 samples per topic
-        proposal_df = df.groupby('topic').sample(min(20, df['topic'].value_counts().min()), random_state=args.seed)
+        proposal_df = df.groupby('topic').sample(min(args.num_proposal_samples, df['topic'].value_counts().min()), random_state=args.seed)
         topic_counts = df['topic'].value_counts()
         for topic, count in topic_counts.items():
             wandb.summary[f"{topic} count"] = count
@@ -166,10 +182,12 @@ def main():
         axis_to_topic = results.groupby('axis')['topic'].apply(set).reset_index()
         results.to_csv(f"{args.save_dir}/{save_str}/{tag}-reducer_results.csv", index=False)
         axis_to_topic.to_json(f"{args.save_dir}/{save_str}/{tag}-axes_to_topic.json", orient='records')
-        eval_axes = results['axis'].value_counts()[:args.num_eval].index.tolist()
+        eval_axes = results['axis'].value_counts()[:min(args.num_eval, len(results['axis'].unique()))].index.tolist()
         wandb.log({k: wandb.Table(dataframe=v) for k, v in tables.items()})
         wandb.log({"eval_axes": results['axis'].value_counts().reset_index(), "results": wandb.Table(dataframe=results), "axis_to_topic": wandb.Table(dataframe=axis_to_topic)})
         if args.proposer_only:
+            for topic in df.topic.unique():
+                print(f"Topic {topic} axes: {axis_to_topic[axis_to_topic['topic'].apply(lambda x: topic in x)]['axis'].tolist()}")
             wandb.finish()
             exit(0)
 
@@ -179,27 +197,21 @@ def main():
     print("STARTING EVAL")
     # load if eval only
     if args.eval_only:
-        if not os.path.exists(f"{args.save_dir}/{save_str}/{tag}-results.csv"):
-            raise ValueError(f"Results file not found at {args.save_dir}/{save_str}/{tag}-results.csv")
-        print(f"Loading {args.save_dir}/{save_str}/{tag}-results.csv...")
-        results = pd.read_csv(f"{args.save_dir}/{save_str}/{tag}-results.csv")
-        axis_to_topic = pd.read_json(f"{args.save_dir}/{save_str}/{tag}-axes_to_topic.json", orient='records')
-        eval_axes = results['axis'].value_counts()[:args.num_eval].index.tolist()
-        print(f"\n\n{results['axis'].value_counts()}\n{eval_axes}\n\n")
-        topic_to_example = pd.read_json(f"{args.save_dir}/{save_str}/{tag}-topic_to_example.json", orient='records')
-    elif args.axes:
+        results, eval_axes, axis_to_topic, topic_to_example, centroids, rubric = load_experiment(f"{args.save_dir}/{save_str}", tag)
+    if args.axes:
         eval_axes = args.axes
         axis_to_topic = {"axis": [], "topic": []}
         for axis in eval_axes:
             axis_to_topic["axis"].append(axis)
             axis_to_topic["topic"].append(df['topic'].unique().tolist())
         axis_to_topic = pd.DataFrame(axis_to_topic)
+        topic_to_example = pd.DataFrame()
         print(f"Axis to topic: {axis_to_topic}")
         
 
     # evaluator = LLMOnlyRanker(args)
     evaluator = getattr(rankers, args.ranker)(args)
-    metrics, results, scoring_logs = evaluator.score(eval_axes, heldout_df.to_dict("records"), axis_to_topic, topic_to_example)
+    metrics, results, scoring_logs = evaluator.score(eval_axes, heldout_df.to_dict("records"), axis_to_topic, topic_to_example, rubric)
     results.to_json(f"{args.save_dir}/{save_str}/{tag}-eval-results.json", orient='records')
     metrics.to_json(f"{args.save_dir}/{save_str}/{tag}-eval-metrics.json", orient='records')
     scoring_logs.to_json(f"{args.save_dir}/{save_str}/{tag}-scoring-logs.json", orient='records')
@@ -213,9 +225,130 @@ def main():
 
     ######################################
     ############  test scores  ###########
-    ######################################   
-    # TODO
-    
+    ######################################
+    if args.test_data_path:
+        print("STARTING TEST EVAL")   
+        test_df = pd.read_csv(args.test_data_path)
+        test_df = test_df[['question', *args.models]]
+        print(f"Models: {args.models}")
+        print(f"Eval Axes: {args.axes}")
+        # remove duplicate question-answer
+        test_df.drop_duplicates(subset=args.models, inplace=True)
+
+        # randomly sample 10 rows, set random seed for reproducibility
+        if args.num_samples or args.test:
+            if args.new_sample:
+                test_df = test_df.sample(frac=1, random_state=args.seed).reset_index(drop=True)[:num_samples]
+            else:
+                test_df = test_df.sample(num_samples, random_state=args.seed)
+
+        test_df["topic"] = match_set_to_centroids(test_df, centroids)
+
+        # print out rows which differ between test_df and heldout_df
+        print(f"Test df shape: {test_df.shape}")
+        print(f"Heldout df shape: {heldout_df.shape}")
+        print(f"Test df topics: {test_df['topic'].value_counts()}")
+        print(f"Heldout df topics: {heldout_df['topic'].value_counts()}")
+        
+        def expand_dataframe_with_axes(df):
+            unique_axes = df['axis'].unique()
+            existing_pairs = set(zip(df['question'], df['axis']))
+            new_rows = []
+            for question in df['question'].unique():
+                for axis in unique_axes:
+                    if (question, axis) not in existing_pairs:
+                        new_row = {
+                            'question': question,
+                            'axis': axis,
+                            'avg_scores': [0, 0],
+                            'avg_diff_scores': [0, 0]
+                        }
+                        new_rows.append(new_row)
+            new_rows_df = pd.DataFrame(new_rows)
+            return pd.concat([df, new_rows_df], ignore_index=True)
+        
+        def prepare_data_for_decision_tree(df, models):
+            df = df.copy()
+            results_short = df[['question', 'topic', 'axis', 'avg_scores', 'avg_diff_scores']]
+            df = expand_dataframe_with_axes(results_short)
+
+            # Create separate rows for each model in the models list
+            expanded_rows = []
+            for i, model in enumerate(models):
+                model_rows = df.copy()
+                model_rows['label'] = model
+                model_rows['avg_diff_scores'] = model_rows['avg_diff_scores'].apply(lambda x: x[i])  # Select the element for the current model
+                expanded_rows.append(model_rows)
+
+            # Concatenate all model rows
+            expanded_df = pd.concat(expanded_rows, ignore_index=True)
+
+            # Pivot the data to create feature columns for each axis
+            pivot_df = expanded_df.pivot_table(index=['question', 'label'], columns='axis', values='avg_diff_scores', fill_value=0).reset_index()
+
+            # Prepare features and target
+            X = pivot_df.drop(columns=['question', 'label'])
+            y = pivot_df['label']
+            
+            return X, y
+        
+        print("RUNNING ON HELDOUT SET")
+        args.early_stopping = False
+        evaluator = getattr(rankers, args.ranker)(args)
+        test_metrics, test_results, test_scoring_logs = evaluator.score(eval_axes, test_df.to_dict("records"), axis_to_topic, topic_to_example, rubric)
+        test_results.to_json(f"{args.save_dir}/{save_str}/{tag}-test-results.json", orient='records')
+        test_metrics.to_json(f"{args.save_dir}/{save_str}/{tag}-test-metrics.json", orient='records')
+        test_scoring_logs.to_json(f"{args.save_dir}/{save_str}/{tag}-test-scoring-logs.json", orient='records')
+            
+        X_train, y_train = prepare_data_for_decision_tree(results, args.models)
+        X_test, y_test = prepare_data_for_decision_tree(test_results, args.models)
+        # Train the Decision Tree Classifier
+        clf = DecisionTreeClassifier(random_state=42)
+        clf.fit(X_train, y_train)
+        y_pred = clf.predict(X_test)
+        y_train_pred = clf.predict(X_train)
+        # save image of decision tree
+        from sklearn.tree import plot_tree
+        # Create the figure with a specified size
+        fig = plt.figure(figsize=(40,25))
+
+
+        # Plot the tree with adjusted parameters for node and text size
+        print(type(args.models))
+        plot_tree(clf, 
+                filled=True, 
+                feature_names=[c.replace("High", "\nHigh").replace("Low", "\nLow") for c in X_train.columns], 
+                class_names=list(args.models), 
+                fontsize=12,  # Set the font size
+                proportion=True,  # Set nodes to be proportional to the number of samples
+                rounded=True  # Round the nodes
+                )
+        plt.savefig(f"{args.save_dir}/{save_str}/{tag}-decision-tree.png", bbox_inches='tight')
+        wandb.log({"decision_tree": wandb.Image(f"{args.save_dir}/{save_str}/{tag}-decision-tree.png")})
+
+        # Print and save classification report
+        print(classification_report(y_test, y_pred))
+        # save train and test classification reports as tables
+        wandb.log({"classification_report": wandb.Table(dataframe=pd.DataFrame(classification_report(y_test, y_pred, output_dict=True))), "classification_report_train": wandb.Table(dataframe=pd.DataFrame(classification_report(y_train, y_train_pred, output_dict=True)))})
+        pd.DataFrame(classification_report(y_test, y_pred, output_dict=True)).to_json(f"{args.save_dir}/{save_str}/{tag}-classification-report.json")
+        pd.DataFrame(classification_report(y_train, y_train_pred, output_dict=True)).to_json(f"{args.save_dir}/{save_str}/{tag}-classification-report-train.json")
+        
+        # train logistic regression
+        from sklearn.linear_model import LogisticRegression
+        clf = LogisticRegression(random_state=42)
+        clf.fit(X_train, y_train)
+        y_pred = clf.predict(X_test)
+        y_train_pred = clf.predict(X_train)
+        # Print and save classification report
+        print("Logistic Regression")
+        print(classification_report(y_test, y_pred))
+        # save train and test classification reports as tables
+        wandb.log({"classification_report_logistic": wandb.Table(dataframe=pd.DataFrame(classification_report(y_test, y_pred, output_dict=True))), "classification_report_logistic_train": wandb.Table(dataframe=pd.DataFrame(classification_report(y_train, y_train_pred, output_dict=True)))})
+        pd.DataFrame(classification_report(y_test, y_pred, output_dict=True)).to_json(f"{args.save_dir}/{save_str}/{tag}-classification-report-logistic.json")
+        pd.DataFrame(classification_report(y_train, y_train_pred, output_dict=True)).to_json(f"{args.save_dir}/{save_str}/{tag}-classification-report-logistic-train.json")
+        # save test predictions and true labels
+        pd.DataFrame({"true": y_test, "pred": y_pred}).to_json(f"{args.save_dir}/{save_str}/{tag}-predictions.json")
+
     wandb.finish()
 
 # make main function
