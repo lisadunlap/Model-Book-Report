@@ -1,0 +1,30 @@
+project: VibeCheck-Llama3VSGPT
+wandb: False # Set to True to log to Weights and Biases
+dummy_eval: False
+oz: False
+group_column: False
+test: False
+save_dir: pipeline_results
+# data_path: data/benchmark/arena_data.csv
+data_path: data/arena/gpt-4-0125-preview_vs_llama_train.csv
+test_data_path: data/arena/gpt-4-0125-preview_vs_llama_test.csv
+k: 3
+batch_size: 50
+embedding_model: text-embedding-3-small
+seed: 42
+cluster_method: hierarchical 
+ranker: MuliRubricRankerJury
+sampler: ClusterSampler
+reducer: AxisReducer
+proposer: LLMProposerMultiModel
+num_topic_clusters: 10
+proposer_batch_size: 5
+judges: [claude-3-haiku-20240307, llama-3-8b]
+models: [llama_output, claude_output]
+eval_only: False
+axes: False
+new_sample: True
+
+# models
+rubric_generation_model: "claude-3-opus-20240229"
+proposer_model: "claude-3-opus-20240229"

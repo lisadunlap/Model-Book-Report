@@ -9,6 +9,7 @@ from scipy.stats import ttest_ind, ttest_rel, mode
 from sklearn.metrics import roc_auc_score
 from tqdm import tqdm, trange
 import re
+import ast
 import itertools
 import plotly.graph_objects as go
 import plotly.express as px
@@ -486,14 +487,16 @@ class MuliRubricRankerJury(RubricRankerJury):
 
         judge_systems_prompt = "You are a fair and objective judge of model outputs. Your evaluations are clear, concise, and free from exaggerative language. You strictly adhere to the format and guidelines provided by the user, ensuring each decision is well-supported by the evidence within the outputs themselves."
         judge_outputs = []
+        judge_logs = []
         for judge in self.args.judges:
-            # print(f"Getting judgement for Judge = {judge}")
             model_outputs = []
+            model_logs = []
             for model in self.args.models:
                 scoring_prompt = prompt.format(axis=axis, rubric=rubric, prompt=f"Prompt: {row['question']}\Output: {row[model]}")
                 output_a = get_llm_output(scoring_prompt, model=judge, system_prompt=judge_systems_prompt)
                 model_outputs.append(output_a)
             judge_outputs.append(model_outputs)
+            judge_logs.append(model_logs)
         return judge_outputs
     
     def score_hypothesis(self, hypothesis: str, dataset: List[dict], axis_to_topic: dict, topic_example: str = None, rubric: str =None) -> List[float]:
@@ -686,7 +689,7 @@ class JuryRanker(MuliRubricRankerJury):
             judge_outputs.append(model_outputs)
         return judge_outputs
     
-    def score_hypothesis(self, hypothesis: str, dataset: List[dict], **kwargs) -> List[float]:
+    def score_hypothesis(self, hypothesis: str, dataset: List[dict], axis_to_topic: dict, topic_to_example: pd.DataFrame = pd.DataFrame(), rubric: pd.DataFrame = pd.DataFrame()) -> List[float]:
         """
         Generate rubric for each hypothesis
         """
@@ -766,3 +769,100 @@ class RelativeRanker(JuryRanker):
             judge_outputs.append(model_outputs)
         return judge_outputs
     
+# Function to calculate weighted score
+def calculate_score(text, keywords):
+    score = 0
+    for keyword, weight in keywords:
+        score += text.count(keyword) * weight
+    return score
+
+# Normalize scores to the -2 to 2 range
+def normalize_scores(scores):
+    min_score = min(scores)
+    max_score = max(scores)
+    normalized_scores = [4 * (score - min_score) / (max_score - min_score) - 2 for score in scores]
+    return normalized_scores
+    
+class keywordRanker(JuryRanker):
+    def __init__(self, args: Dict):
+        super().__init__(args)
+        random.seed(args.seed)
+        self.diff_proposer = LLMProposer(args)
+        self.num_judges = 1
+        self.args.judges = ["gpt-3.5-turbo"]
+        self.keywords = {}
+
+    def get_keywords(self, axis):
+        prompt = """I have a dataset consisting of prompts along with the outputs of two different LLMs. I want to see if there are any qualitative differences between the two models by looking at the pairwise differences in their outputs. I have come up with a spectrum on which I think these outputs vary. The spectrum is as follows:
+
+        {axis}
+
+        I want to measure where the outputs from model A and model B fall on this spectrum, and if one is significantly higher or lower than the other. Can you give me a list of words or phrases to search for in the output that could help me with this task? Specifically, I would like a list of words associated with being low or high on the spectrum along with a weight from 0-1 indicating how important that word is in determining where the output falls on the spectrum. I will then do exact string matching and analyze the string counts of the outputs to measure the differences in model outputs. Please take your time to reflect on the spectrum and provide me with a list of words or phrases that you think would be most useful."""
+
+        conversion_prompt = """great! Now can you please convert these into two python lists of format:
+
+        high_descriptions = [(word or phrase, weight), ..]
+        low_descriptions = [(word or phrase, weight), ..]
+        
+        I should be able to take your output and parse it using ast.literal_eval()"""
+
+        conversion_failed = """I am getting the following error while trying to parse the output. Can you please try again?
+        
+        {error}
+        """
+
+        keywords = get_llm_output(prompt.format(axis=axis), model="gpt-4o")
+        history = [{"role": "user", "content": prompt.format(axis=axis)}, {"role": "assistant", "content": keywords}]
+        try:
+            converted = get_llm_output(conversion_prompt, model="gpt-4o", history=history)
+            print(f"Keywords: {keywords}")
+            print(f"Converted: {converted}")
+            # Extracting the high_descriptions and low_descriptions
+            high_start = converted.find('high_descriptions = [')
+            high_end = converted.find(']', high_start) + 1
+            low_start = converted.find('low_descriptions = [')
+            low_end = converted.find(']', low_start) + 1
+
+            # Parsing the lists
+            high_descriptions_str = converted[high_start + len('high_descriptions = '): high_end]
+            low_descriptions_str = converted[low_start + len('low_descriptions = '): low_end]
+
+            high_descriptions = ast.literal_eval(high_descriptions_str)
+            low_descriptions = ast.literal_eval(low_descriptions_str)
+        except Exception as e:
+            converted = get_llm_output(conversion_failed.format(error=e), model="gpt-4o", history=history)
+            print(f"Keywords: {keywords}")
+            print(f"Converted: {converted}")
+            # Extracting the high_descriptions and low_descriptions
+            high_start = converted.find('high_descriptions = [')
+            high_end = converted.find(']', high_start) + 1
+            low_start = converted.find('low_descriptions = [')
+            low_end = converted.find(']', low_start) + 1
+
+            # Parsing the lists
+            high_descriptions_str = converted[high_start + len('high_descriptions = '): high_end]
+            low_descriptions_str = converted[low_start + len('low_descriptions = '): low_end]
+
+            high_descriptions = ast.literal_eval(high_descriptions_str)
+            low_descriptions = ast.literal_eval(low_descriptions_str)
+
+        print("High Descriptions:", high_descriptions)
+        print("Low Descriptions:", low_descriptions)
+        return high_descriptions, low_descriptions
+
+    def get_score(self, row, axis, dummy_eval=False):
+        high_engagement_keywords, low_engagement_keywords = self.get_keywords(axis)
+        judge_outputs = []
+        for judge in self.args.judges:
+            print(f"Getting judgement for Judge = {judge}")
+            model_outputs = []
+            for model in self.args.models:
+                # Calculate raw scores for outputs from model A
+                raw_scores_a = calculate_score(row[model], high_engagement_keywords) - calculate_score(row[model], low_engagement_keywords)
+                model_outputs.append(raw_scores_a)
+            judge_outputs.append(model_outputs)
+
+        return judge_outputs
+    
+    def extract_scores(self, output):
+        return output

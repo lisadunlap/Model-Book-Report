@@ -1,0 +1,29 @@
+project: VibeCheck-HumanVSGpt
+wandb: False # Set to True to log to Weights and Biases
+num_samples: False
+dummy_eval: False
+oz: False
+group_column: False
+proposer: LLMProposerMultiModel
+reducer: AxisReducer
+sampler: ClusterSampler
+test: False
+save_dir: pipeline_results
+data_path: data/gpt_vs_human/multisource_testing_train.csv
+test_data_path: data/gpt_vs_human/multisource_testing_test.csv
+num_topic_clusters: 5
+proposer_only: False
+k: 3
+batch_size: 50
+num_eval: 10
+embedding_model: text-embedding-3-small
+seed: 42
+cluster_method: hierarchical
+proposer_batch_size: 10
+ranker: MuliRubricRankerJury
+heldout_percentage: 0.5
+# judges: [gpt-3.5-turbo, claude-3-haiku-20240307, llama-3-8b]
+judges: [gpt-3.5-turbo, llama-3-8b]
+models: [human_answers, chatgpt_answers]
+eval_only: False
+axes: False

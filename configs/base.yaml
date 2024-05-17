@@ -4,8 +4,8 @@ model_a_column: human_answers
 model_b_column: chatgpt_answers
 k: 3
 batch_size: 50
-num_eval: 3
-num_axes_generated: 10
+num_eval: 100
+num_axes_generated: 100
 embedding_model: text-embedding-3-small
 seed: 42
 cluster_method: hierarchical
@@ -21,5 +21,13 @@ num_topic_clusters: 5
 test: False
 save_dir: pipeline_results
 early_stopping: True
-topic_based_rubric_example: False
+topic_based_rubric_example: True
 early_stopping_threshold: 0.1
+num_proposal_samples: 20
+
+test_data_path: False
+new_sample: False
+
+# models
+rubric_generation_model: "gpt-4-0125-preview"
+proposer_model: "claude-3-opus-20240229"

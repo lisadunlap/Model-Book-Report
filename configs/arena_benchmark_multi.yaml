@@ -1,6 +1,6 @@
 project: VibeCheck-Benchmark
 wandb: False # Set to True to log to Weights and Biases
-num_samples: False
+num_samples: 50
 dummy_eval: False
 oz: False
 group_column: False
@@ -11,7 +11,7 @@ data_path: data/benchmark/arena_data.csv
 k: 3
 batch_size: 50
 num_axes_generated: 5
-num_eval: 10
+num_eval: 25
 embedding_model: text-embedding-3-small
 seed: 42
 cluster_method: hierarchical
@@ -23,9 +23,11 @@ proposer: LLMProposerMultiModel
 num_topic_clusters: 5
 heldout_percentage: 0.75
 proposer_batch_size: 5
-judges: [claude-3-haiku-20240307, llama-3-8b, llama-3-70b]
-models: ['base', 'funny']
-# models: ['base', 'friendly-and-personable', 'cold-and-factual', 'storyteller', 'organized', 'safety-concious', 'conspiracy-theorist', 'funny', 'imaginative', 'anotagonistic']
-# models: [A, B]
+judges: [llama-3-8b, llama-3-70b]
+models: ['baseline', 'friendly-and-personable']
 eval_only: False
 axes: False
+
+# models
+rubric_generation_model: "gpt-4o"
+proposer_model: "claude-3-opus-20240229"

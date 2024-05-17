@@ -28,7 +28,7 @@ import components.ranker as rankers
 import components.proposer as proposers
 import components.reducer as reducers
 import components.sampler as samplers
-from components.sampler import match_set_to_centroids
+from components.sampler import match_set_to_centroids, classify_centroids
 
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -49,10 +49,10 @@ def get_save_str(args,num_samples, model_group):
         os.makedirs(f"{args.save_dir}/{save_str}", exist_ok=True)
     return save_str, tag
 
-def load_experiment(results_dir, tag):
-    results = pd.read_json(f"{results_dir}/{tag}-eval-results.json")
+def load_experiment(results_dir, tag, args):
+    results = pd.read_csv(f"{results_dir}/{tag}-reducer_results.csv")
     axis_to_topic = pd.read_json(f"{results_dir}/{tag}-axes_to_topic.json", orient='records')
-    eval_axes = results['axis'].value_counts().index.tolist()
+    eval_axes = results['axis'].value_counts()[:min(args.num_eval, len(results['axis'].unique()))].index.tolist()
     print(f"\n\n{results['axis'].value_counts()}\n{eval_axes}\n\n")
     if os.path.exists(f"{results_dir}/{tag}-topic_to_example.json"):
         topic_to_example = pd.read_json(f"{results_dir}/{tag}-topic_to_example.json", orient='records')
@@ -64,9 +64,11 @@ def load_experiment(results_dir, tag):
         topic_centroids = None
     if os.path.exists(f"{results_dir}/{tag}-scoring-logs.json"):
         rubric = pd.read_json(f"{results_dir}/{tag}-scoring-logs.json")
+        print(f"Rubric: {rubric} \t {len(rubric)}")
+        rubric = pd.DataFrame() if len(rubric.columns) == 0 else rubric
     else:
         rubric = pd.DataFrame()
-    return results, eval_axes, axis_to_topic, topic_to_example, topic_centroids, rubric
+    return eval_axes, axis_to_topic, topic_to_example, topic_centroids, rubric
 
 import argparse
 def main():
@@ -95,6 +97,7 @@ def main():
     df = pd.read_csv(args.data_path)
     print(f"Models: {args.models}")
     print(f"Eval Axes: {args.axes}")
+    print(f"df columns: {df.columns}")
     # remove duplicate question-answer
     df.drop_duplicates(subset=args.models, inplace=True)
 
@@ -133,9 +136,9 @@ def main():
     
     # sample
     sampler = getattr(samplers, args.sampler)(args)
-    topics, centroids = sampler.sample(df)
+    df, centroids = sampler.sample(df)
     np.save(f"{args.save_dir}/{save_str}/{tag}-topic-centroids.np", centroids)
-    df["topic"] = topics
+    topics = df["topic"]
     rubric = pd.DataFrame()
 
     print(f"Running a VibeCheck on {len(df)} samples")
@@ -197,7 +200,7 @@ def main():
     print("STARTING EVAL")
     # load if eval only
     if args.eval_only:
-        results, eval_axes, axis_to_topic, topic_to_example, centroids, rubric = load_experiment(f"{args.save_dir}/{save_str}", tag)
+        eval_axes, axis_to_topic, topic_to_example, _, rubric = load_experiment(f"{args.save_dir}/{save_str}", tag, args)
     if args.axes:
         eval_axes = args.axes
         axis_to_topic = {"axis": [], "topic": []}
@@ -242,7 +245,10 @@ def main():
             else:
                 test_df = test_df.sample(num_samples, random_state=args.seed)
 
-        test_df["topic"] = match_set_to_centroids(test_df, centroids)
+        test_df["topic"] = match_set_to_centroids(test_df, centroids, np.array(df['topic_label'].tolist()), np.stack(df["embedding"].tolist()))
+        # test_df["topic"] = classify_centroids(test_df, centroids['summary'])
+        print(f"DF topic breadkdown: {df['topic'].value_counts()}")
+        print(f"Test DF topic breakdown: {test_df['topic'].value_counts()}")
 
         # print out rows which differ between test_df and heldout_df
         print(f"Test df shape: {test_df.shape}")
@@ -250,47 +256,47 @@ def main():
         print(f"Test df topics: {test_df['topic'].value_counts()}")
         print(f"Heldout df topics: {heldout_df['topic'].value_counts()}")
         
-        def expand_dataframe_with_axes(df):
-            unique_axes = df['axis'].unique()
-            existing_pairs = set(zip(df['question'], df['axis']))
-            new_rows = []
-            for question in df['question'].unique():
-                for axis in unique_axes:
-                    if (question, axis) not in existing_pairs:
-                        new_row = {
-                            'question': question,
-                            'axis': axis,
-                            'avg_scores': [0, 0],
-                            'avg_diff_scores': [0, 0]
-                        }
-                        new_rows.append(new_row)
-            new_rows_df = pd.DataFrame(new_rows)
-            return pd.concat([df, new_rows_df], ignore_index=True)
+        # def expand_dataframe_with_axes(df):
+        #     unique_axes = df['axis'].unique()
+        #     existing_pairs = set(zip(df['question'], df['axis']))
+        #     new_rows = []
+        #     for question in df['question'].unique():
+        #         for axis in unique_axes:
+        #             if (question, axis) not in existing_pairs:
+        #                 new_row = {
+        #                     'question': question,
+        #                     'axis': axis,
+        #                     'avg_scores': [0, 0],
+        #                     'avg_diff_scores': [0, 0]
+        #                 }
+        #                 new_rows.append(new_row)
+        #     new_rows_df = pd.DataFrame(new_rows)
+        #     return pd.concat([df, new_rows_df], ignore_index=True)
         
-        def prepare_data_for_decision_tree(df, models):
-            df = df.copy()
-            results_short = df[['question', 'topic', 'axis', 'avg_scores', 'avg_diff_scores']]
-            df = expand_dataframe_with_axes(results_short)
+        # def prepare_data_for_decision_tree(df, models):
+        #     df = df.copy()
+        #     results_short = df[['question', 'topic', 'axis', 'avg_scores', 'avg_diff_scores']]
+        #     df = expand_dataframe_with_axes(results_short)
 
-            # Create separate rows for each model in the models list
-            expanded_rows = []
-            for i, model in enumerate(models):
-                model_rows = df.copy()
-                model_rows['label'] = model
-                model_rows['avg_diff_scores'] = model_rows['avg_diff_scores'].apply(lambda x: x[i])  # Select the element for the current model
-                expanded_rows.append(model_rows)
+        #     # Create separate rows for each model in the models list
+        #     expanded_rows = []
+        #     for i, model in enumerate(models):
+        #         model_rows = df.copy()
+        #         model_rows['label'] = model
+        #         model_rows['avg_diff_scores'] = model_rows['avg_diff_scores'].apply(lambda x: x[i])  # Select the element for the current model
+        #         expanded_rows.append(model_rows)
 
-            # Concatenate all model rows
-            expanded_df = pd.concat(expanded_rows, ignore_index=True)
+        #     # Concatenate all model rows
+        #     expanded_df = pd.concat(expanded_rows, ignore_index=True)
 
-            # Pivot the data to create feature columns for each axis
-            pivot_df = expanded_df.pivot_table(index=['question', 'label'], columns='axis', values='avg_diff_scores', fill_value=0).reset_index()
+        #     # Pivot the data to create feature columns for each axis
+        #     pivot_df = expanded_df.pivot_table(index=['question', 'label'], columns='axis', values='avg_diff_scores', fill_value=0).reset_index()
 
-            # Prepare features and target
-            X = pivot_df.drop(columns=['question', 'label'])
-            y = pivot_df['label']
+        #     # Prepare features and target
+        #     X = pivot_df.drop(columns=['question', 'label'])
+        #     y = pivot_df['label']
             
-            return X, y
+        #     return X, y
         
         print("RUNNING ON HELDOUT SET")
         args.early_stopping = False
@@ -302,6 +308,13 @@ def main():
             
         X_train, y_train = prepare_data_for_decision_tree(results, args.models)
         X_test, y_test = prepare_data_for_decision_tree(test_results, args.models)
+
+        # if there are any test features which are all 0, remove them from the train and test data
+        zero_features = X_train.columns[X_train.sum() == 0]
+        print(f"Zero features: {zero_features}")
+        X_train = X_train.drop(columns=zero_features)
+        X_test = X_test.drop(columns=zero_features)
+
         # Train the Decision Tree Classifier
         clf = DecisionTreeClassifier(random_state=42)
         clf.fit(X_train, y_train)
@@ -314,7 +327,6 @@ def main():
 
 
         # Plot the tree with adjusted parameters for node and text size
-        print(type(args.models))
         plot_tree(clf, 
                 filled=True, 
                 feature_names=[c.replace("High", "\nHigh").replace("Low", "\nLow") for c in X_train.columns], 

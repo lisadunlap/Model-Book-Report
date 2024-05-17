@@ -10,8 +10,6 @@ save_dir: pipeline_results
 data_path: data/arena/claude_vs_llama_turn1.csv
 k: 3
 batch_size: 50
-num_axes_generated: 5
-num_eval: 10
 embedding_model: text-embedding-3-small
 seed: 42
 cluster_method: hierarchical 
@@ -26,3 +24,7 @@ judges: [claude-3-haiku-20240307, llama-3-8b, llama-3-70b]
 models: [llama_output, claude_output]
 eval_only: False
 axes: False
+
+# models
+rubric_generation_model: "claude-3-opus-20240229"
+proposer_model: "claude-3-opus-20240229"

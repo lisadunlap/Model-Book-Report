@@ -1,0 +1,36 @@
+project: VibeCheck-Benchmark
+wandb: False # Set to True to log to Weights and Biases
+num_samples: 50
+dummy_eval: False
+oz: False
+group_column: False
+test: False
+save_dir: pipeline_results
+data_path: data/benchmark/train.csv
+test_data_path: data/benchmark/test.csv
+# data_path: data/benchmark/arena_friendly_and_cold_smaller.csv
+k: 3
+batch_size: 50
+num_axes_generated: 5
+num_eval: 25
+embedding_model: text-embedding-3-small
+seed: 42
+cluster_method: hierarchical
+ranker: MuliRubricRankerJury
+# sampler: ClusterSampler
+sampler: Sampler
+reducer: AxisReducer
+proposer: LLMProposerMultiModel
+num_topic_clusters: 5
+heldout_percentage: 0.75
+proposer_batch_size: 5
+judges: [llama-3-8b, llama-3-70b]
+models: ['professional', 'casual']
+eval_only: False
+axes: ["Formality: High = Formal language, technical terms, polite expressions; Low = Casual, slang, informal expressions"]
+
+new_sample: True
+
+# models
+rubric_generation_model: "gpt-4o"
+proposer_model: "claude-3-opus-20240229"
