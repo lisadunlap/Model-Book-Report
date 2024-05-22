@@ -7,7 +7,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.tree import plot_tree
 from sklearn.utils import shuffle
 
-def expand_dataframe_with_axes(df):
+def expand_dataframe_with_axes(df, metric='avg_diff_scores'):
   unique_axes = df['axis'].unique()
   existing_pairs = set(zip(df['question'], df['axis']))
   new_rows = []
@@ -18,15 +18,15 @@ def expand_dataframe_with_axes(df):
                   'question': question,
                   'axis': axis,
                   'avg_scores': [0, 0],
-                  'avg_diff_scores': [0, 0]
+                  metric: [0, 0]
               }
               new_rows.append(new_row)
   new_rows_df = pd.DataFrame(new_rows)
   return pd.concat([df, new_rows_df], ignore_index=True)
 
-def prepare_data_for_decision_tree(df, models):
+def prepare_data_for_decision_tree(df, models, metric='avg_diff_scores'):
   df = df.copy()
-  results_short = df[['question', 'topic', 'axis', 'avg_scores', 'avg_diff_scores']]
+  results_short = df[['question', 'topic', 'axis', 'avg_scores', metric]]
   df = expand_dataframe_with_axes(results_short)
 
   # Create separate rows for each model in the models list
@@ -34,14 +34,14 @@ def prepare_data_for_decision_tree(df, models):
   for i, model in enumerate(models):
       model_rows = df.copy()
       model_rows['label'] = model
-      model_rows['avg_diff_scores'] = model_rows['avg_diff_scores'].apply(lambda x: x[i])  # Select the element for the current model
+      model_rows[metric] = model_rows[metric].apply(lambda x: x[i])  # Select the element for the current model
       expanded_rows.append(model_rows)
 
   # Concatenate all model rows
   expanded_df = pd.concat(expanded_rows, ignore_index=True)
 
   # Pivot the data to create feature columns for each axis
-  pivot_df = expanded_df.pivot_table(index=['question', 'label'], columns='axis', values='avg_diff_scores', fill_value=0).reset_index()
+  pivot_df = expanded_df.pivot_table(index=['question', 'label'], columns='axis', values=metric, fill_value=0).reset_index()
 
   # Prepare features and target
   X = pivot_df.drop(columns=['question', 'label'])
@@ -49,9 +49,9 @@ def prepare_data_for_decision_tree(df, models):
 
   return X, y
 
-def train_decision_tree(results, test_results, models, show=False):
-  X_train, y_train = prepare_data_for_decision_tree(results, models)
-  X_test, y_test = prepare_data_for_decision_tree(test_results, models)
+def train_decision_tree(results, test_results, models, show=False, metric='avg_diff_scores'):
+  X_train, y_train = prepare_data_for_decision_tree(results, models, metric=metric)
+  X_test, y_test = prepare_data_for_decision_tree(test_results, models, metric=metric)
   X_train, y_train = shuffle(X_train, y_train, random_state=42)
   data = {"X_train": X_train, "X_test": X_test, "y_train": y_train, "y_test": y_test}
   # shuffle=True is the default
@@ -104,3 +104,38 @@ def train_decision_tree(results, test_results, models, show=False):
   data["feature_importances_reg"] = clf_reg.coef_[0]
 
   return clf, clf_reg, data
+
+def train_individual_feature_impact(results, test_results, models, metric='avg_diff_scores'):
+    X_train, y_train = prepare_data_for_decision_tree(results, models, metric=metric)
+    X_test, y_test = prepare_data_for_decision_tree(test_results, models, metric=metric)
+    X_train, y_train = shuffle(X_train, y_train, random_state=42)
+    
+    feature_impact = {}
+    logistic_reg_feature_impact = {}
+    
+    for feature in X_train.columns:
+        
+        # Train decision tree on individual feature
+        clf = DecisionTreeClassifier(random_state=42)
+        clf.fit(X_train[[feature]], y_train)
+        y_pred = clf.predict(X_test[[feature]])
+        feature_impact[feature] = classification_report(y_test, y_pred, output_dict=True)
+
+        # Train logistic regression on individual feature
+        clf_reg = LogisticRegression(random_state=42)
+        clf_reg.fit(X_train[[feature]], y_train)
+        y_pred_reg = clf_reg.predict(X_test[[feature]])
+        logistic_reg_feature_impact[feature] = classification_report(y_test, y_pred_reg, output_dict=True)
+
+    # get overall acc using all features
+    clf = DecisionTreeClassifier(random_state=42)
+    clf.fit(X_train, y_train)
+    y_pred = clf.predict(X_test)
+    feature_impact["all_features"] = classification_report(y_test, y_pred, output_dict=True)
+
+    clf_reg = LogisticRegression(random_state=42)
+    clf_reg.fit(X_train, y_train)
+    y_pred_reg = clf_reg.predict(X_test)
+    logistic_reg_feature_impact["all_features"] = classification_report(y_test, y_pred_reg, output_dict=True)
+    
+    return clf, clf_reg, {"decision_tree": feature_impact, "logistic_regression": logistic_reg_feature_impact}

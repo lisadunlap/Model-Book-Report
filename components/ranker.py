@@ -15,9 +15,9 @@ import plotly.graph_objects as go
 import plotly.express as px
 
 import wandb
-from serve.utils_clip import get_embeddings
+# from serve.utils_clip import get_embeddings
 from serve.utils_llm import get_llm_output
-from serve.utils_vlm import get_vlm_output
+# from serve.utils_vlm import get_vlm_output
 
 from components.proposer import LLMProposer
 
@@ -127,11 +127,11 @@ class RubricRanker(Ranker):
         {rubric}
 
         Please provide your feedback in the following format:
-        1. {{feedback}}
-        2. {{feedback}}
-        3. {{feedback}}
-        4. {{feedback}}
-        5. {{feedback}}
+        1. {{yes/no}}: {{feedback}}
+        2. {{yes/no}}: {{feedback}}
+        3. {{yes/no}}: {{feedback}}
+        4. {{yes/no}}: {{feedback}}
+        5. {{yes/no}}: {{feedback}}
         """
         
         if not example:
@@ -154,6 +154,14 @@ class RubricRanker(Ranker):
         print(converted)
         print("-------------")
         print(check)
+        if "no:" in check.lower():
+            print("Rubric is not clear. Please try again.")
+            rubric_output = get_llm_output(prompt, model="gpt-4o", cache=False)
+            converted = get_llm_output(convert_prompt.format(output=rubric_output), model="gpt-4")
+            check = get_llm_output(assert_prompt.format(axis=axis, rubric=converted), model="gpt-4")
+            print(converted)
+            if "no:" in check.lower():
+                raise ValueError("Rubric is not clear. Please try again.")
         return converted, {"axis": axis, "rubric": rubric_output, "converted_rubric": converted, "check": check}
 
     def get_score(self, row, axis, rubric, dummy_eval=False):
@@ -754,7 +762,7 @@ class RelativeRanker(JuryRanker):
         Analysis: {{reasoning}}
         Model: {{A or B}}
         """
-
+        
         judge_systems_prompt = "You are a fair and objective judge of model outputs. Your evaluations are clear, concise, and free from exaggerative language. You strictly adhere to the format and guidelines provided by the user, ensuring each decision is well-supported by the evidence within the outputs themselves."
         judge_outputs = []
         for judge in self.args.judges:
@@ -769,6 +777,112 @@ class RelativeRanker(JuryRanker):
             judge_outputs.append(model_outputs)
         return judge_outputs
     
+class RelativeRankerFixed(RelativeRanker):
+    """
+    Scores by saying which model fits the description better
+    """
+
+    def extract_scores(self, output):
+        """parse out the score from the output of the following format
+            Analysis: {{reasoning}}
+            Model: {{A or B}}
+        """
+        score_pattern = re.compile(r'Model: (A|B)', re.IGNORECASE)
+        score = score_pattern.findall(output)
+        if len(score) == 0:
+            print(f"Error extracting scores from text: {output}")
+            return 0
+        if score[0] == "A" or score[0] == "a":
+            return 1
+        elif score[0] == "B" or score[0] == "b":
+            return -1
+        else:
+            print(f"Invalid score: {score[0]}")
+            return 0
+
+    def get_score(self, row, axis, dummy_eval=False):
+        if dummy_eval:
+            return ["Analysis: Because I said so\nScore: 0"]  * len(self.args.models)
+            
+        prompt = """I want to compare the outputs of two lamgauge models (A and B) for the same prompt. I would like you to evaluate where each output falls on the following axis: {axis}. 
+
+        If you had to choose which output is higher on the axis, which would you choose? Here is the prompt and the outputs of A and B respectively:
+
+        {prompt}
+        
+        Please respond with which model you think is higher on the axis and explain your reasoning. If this axis does not apply to these examples or these outputs are roughly equal on this axis, return "N/A". Use the following format for your response:
+
+        Analysis: {{reasoning}}
+        Model: {{A, B, or N/A}}
+        """
+        
+        judge_systems_prompt = "You are a fair and objective judge of model outputs. Your evaluations are clear, concise, and free from exaggerative language. You strictly adhere to the format and guidelines provided by the user, ensuring each decision is well-supported by the evidence within the outputs themselves."
+        judge_outputs = []
+        for judge in self.args.judges:
+            print(f"Getting judgement for Judge = {judge}")
+            model_outputs = []
+            for model in self.args.models:
+                model_a, model_b = model, [m for m in self.args.models if m != model][0]
+                scoring_prompt = prompt.format(axis=axis, prompt=f"Prompt: {row['question']}\nOutput A: {row[model_a]}\nOutput B: {row[model_b]}")
+                output_a = get_llm_output(scoring_prompt, model=judge, system_prompt=judge_systems_prompt)
+                # score = self.parse_output(output_a)
+                model_outputs.append(output_a)
+            judge_outputs.append(model_outputs)
+        return judge_outputs
+    
+
+class PreferenceRanker(RelativeRanker):
+    """
+    Scores by saying which model fits the description better
+    """
+
+    def extract_scores(self, output):
+        """parse out the score from the output of the following format
+            Analysis: {{reasoning}}
+            Model: {{A or B}}
+        """
+        score_pattern = re.compile(r'Model: (A|B)', re.IGNORECASE)
+        score = score_pattern.findall(output)
+        if len(score) == 0:
+            print(f"Error extracting scores from text: {output}")
+            return 0
+        if score[0] == "A" or score[0] == "a":
+            return 1
+        elif score[0] == "B" or score[0] == "b":
+            return -1
+        else:
+            print(f"Invalid score: {score[0]}")
+            return 0
+
+    def get_score(self, row, axis, dummy_eval=False):
+        if dummy_eval:
+            return ["Analysis: Because I said so\nScore: 0"]  * len(self.args.models)
+            
+        prompt = """Please act as an impartial judge and evaluate the quality of the responses provided by two AI assistants (A and B) to the user question displayed below. You should choose the assistant that follows the user’s instructions and answers the user’s question better. Your evaluation should consider factors such as the helpfulness, relevance, accuracy, depth, creativity, and level of detail of their responses. Begin your evaluation by comparing the two responses and provide a short explanation. Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible. 
+
+        Here is the prompt and the outputs of A and B respectively:
+
+        {prompt}
+
+        Please respond with the model which contains a higher quality response. Based on your analysis, please explain your reasoning before assigning a score. Use the following format for your response:
+        Analysis: {{reasoning}}
+        Model: {{A, B, tie}}
+        """
+        
+        judge_systems_prompt = "You are a fair and objective judge of model outputs. Your evaluations are clear, concise, and free from exaggerative language. You strictly adhere to the format and guidelines provided by the user, ensuring each decision is well-supported by the evidence within the outputs themselves."
+        judge_outputs = []
+        for judge in self.args.judges:
+            print(f"Getting judgement for Judge = {judge}")
+            model_outputs = []
+            for model in self.args.models:
+                model_a, model_b = model, [m for m in self.args.models if m != model][0]
+                scoring_prompt = prompt.format(axis=axis, prompt=f"Prompt: {row['question']}\nOutput A: {row[model_a]}\nOutput B: {row[model_b]}")
+                output_a = get_llm_output(scoring_prompt, model=judge, system_prompt=judge_systems_prompt)
+                # score = self.parse_output(output_a)
+                model_outputs.append(output_a)
+            judge_outputs.append(model_outputs)
+        return judge_outputs
+
 # Function to calculate weighted score
 def calculate_score(text, keywords):
     score = 0

@@ -15,7 +15,7 @@ import components.prompts as prompts
 import wandb
 from serve.utils_general import save_data_diff_image
 from serve.utils_llm import get_llm_output
-from serve.utils_vlm import get_embed_caption_blip, get_vlm_output
+# from serve.utils_vlm import get_embed_caption_blip, get_vlm_output
 from tqdm import tqdm
 import omegaconf
 
@@ -432,6 +432,139 @@ class LLMProposerMultiModel(LLMBatchProposer):
 
         results["no_difference_detected"] = results["response"].apply(lambda x: is_match(x, "No differences found"))
         results = results[~results["no_difference_detected"]]
+
+        # cluster per axis differences
+        results['axis_description'] = results['axis_response'].apply(parse_bullets)
+        results = results.explode('axis_description')
+
+        all_axis_descriptions = list(set(results['axis_description']))
+        return all_axis_descriptions, llm_logs, pairwise_differences, results
+
+class LLMProposerFixed(LLMProposerMultiModel):
+
+    def propose_batch(self, df):
+        """
+        Get differences over a list of prompts
+        """
+        proposer_prompt = """
+        The following are the result of asking a set language models to generate an answer for the same benchmark questions:
+
+        {text}
+
+        I am a machine learning researcher trying to figure out the major differences between these two LLM outputs so I can better compare the behavior of these models. Note that I am not looking for differences as they pertain to model accuracy. Are there any general patterns, clusters, or variations you notice in the outputs aside from accuracy? 
+
+        Please output a list of qualitative differences between these sets of outputs with relation to specific axes of variation. Try to give axes which represent a qualiative property that a human could easily interpret and they could understand what it means to be higher or lower on that specific axis. Please ensure that the concepts used to explain what is high and low on the axis are distinct and mutually exclusive such that given any tuple of text outputs, a human could easily and reliably determine which model is higher or lower on that axis. 
+
+        The format should be
+        - {{axis_1}}: {{difference}}
+        - {{axis_2}}: {{difference}}
+            
+            Please output differences which have a possibility of showing up in future unseen data and which would be useful for a human to know about when deciding with LLM to use. Please do not list any axes which relate to accuracy, as the goal is to find qualitative differences which may correlate with human preference. For each axis, define clearly and succinctly what constitutes a high or low score, ensuring these definitions are mutually exclusive. For each axis, also provide an explanation of what in the text proves this difference exists. Please order your response in terms of the most prominent differences between the two outputs. If the outputs are nearly identical, please write "No differences found."
+        """
+
+        axis_convert = """The following are the axes of variation that you can consider when comparing the two outputs along with a description of how language model outputs vary along that axis:
+
+            {axes}
+
+            I want to formalize exactly what it means to be high and low on each axis. For each axis, I want you to provide a description of what it means to be high and low on that axis so that I can place future model outputs along this axis. Your output should be in this format:
+
+            - {{axis_1}}:
+                High: {{description of high}}
+                Low: {{description of low}}
+
+            - {{axis_2}}:
+                High: {{description of high}}
+                Low: {{description of low}}
+
+            Please ensure that the description what is high and low on the axis are distinct and mutually exclusive such that given any unseen pair of text outputs, a human could easily and reliably determine which model is higher or lower on that axis. Please keep the axis name and descriptions of what is high and low are less than 5 words each.
+        """
+
+        assert "question" in df.columns, "'question' column not in dataset"
+        random.seed(self.args.seed)
+        oz_axes = ["Tone", "Format", "Level of Detail", "Ability to answer", "Safety", "Approach", "Creativity", "Fluency and crammatical correctness", "Adherence to prompt"]
+
+        # get per question differences
+        texts = []
+        # shuffle args.models
+        shuffled_cols = random.sample(self.model_columns, len(self.model_columns))
+        for i, row in tqdm(df.iterrows(), total=df.shape[0]):
+            for j, model in enumerate(shuffled_cols):
+                texts.append(f"{row['question']}\nModel {j}:\n{row[model]}\n")
+        texts = "\n".join(texts)
+        if self.args.oz:
+            prompt = oz_proposer_prompt.format(text=texts, axes="\n".join([f"* {axis}" for axis in oz_axes]))
+        else:
+            prompt = proposer_prompt.format(text=texts)
+        response = get_llm_output(prompt, model=self.args.proposer_model, system_prompt=self.systems_prompt).replace("**", "")
+        if "LLM Error" in response:
+            exit(0)
+        axis_prompt = axis_convert.format(axes=response)
+        axis_response = get_llm_output(axis_prompt, model="gpt-4", system_prompt=self.smaller_systems_prompt)
+        return response, axis_response, {"proposal_prompt": prompt, "response": response, "conversion_prompt": axis_prompt, "axis_response": axis_response}
+
+class DummyProposer(Proposer):
+    """
+    Proposes possible ways an LLM output can differ from another LLM output without actually showing model outputs
+    """
+    def __init__(self, args: Dict):
+        super().__init__(args)
+
+    def get_hypotheses(self, df):
+        prompt = """I am a machine learning researcher trying to figure out the major differences between the behavior of different large language mdoels. Can you list common ways in which two language models can differ in their outputs?
+        
+        Please output a list differences between these sets of outputs with relation to specific axes of variation. Try to give axes that a human could easily interpret and they could understand what it means to be higher or lower on that specific axis. Please ensure that the concepts used to explain what is high and low on the axis are distinct and mutually exclusive such that given any tuple of text outputs, a human could easily and reliably determine which model is higher or lower on that axis.
+        
+        The format should be
+        - {{axis_1}}: {{difference}}
+        - {{axis_2}}: {{difference}}
+            
+        Please output differences which have a possibility of showing up in future unseen data and which would be useful for a human to know about when deciding with LLM to use. For each axis, define clearly and succinctly what constitutes a high or low score, ensuring these definitions are mutually exclusive."""
+
+        axis_convert = """The following are the axes of variation that you can consider when comparing the two outputs along with a description of how language model outputs vary along that axis:
+
+            {axes}
+
+            I want to formalize exactly what it means to be high and low on each axis. For each axis, I want you to provide a description of what it means to be high and low on that axis so that I can place future model outputs along this axis. Your output should be in this format:
+
+            - {{axis_1}}:
+                High: {{description of high}}
+                Low: {{description of low}}
+
+            - {{axis_2}}:
+                High: {{description of high}}
+                Low: {{description of low}}
+
+            Please ensure that the description what is high and low on the axis are distinct and mutually exclusive such that given any unseen pair of text outputs, a human could easily and reliably determine which model is higher or lower on that axis. Please keep the axis name and descriptions of what is high and low are less than 5 words each.
+        """
+
+        response = get_llm_output(prompt, model=self.args.proposer_model, system_prompt="You are a helpful assistant. Your outputs adhere to the format given by the user.")
+        axis_response = get_llm_output(axis_convert.format(axes=response), model=self.args.proposer_model, system_prompt="You are a helpful assistant. Your outputs adhere to the format given by the user.")
+
+        return response, axis_response, {"proposal_prompt": prompt, "response": response, "conversion_prompt": axis_prompt, "axis_response": axis_response}
+
+    def propose(
+        self, df
+    ) -> Tuple[List[str], List[Dict], List[Dict]]:
+        """
+        Given two datasets, return a list of hypotheses
+        """
+        assert "question" in df.columns, "'question' column not in dataset"
+        random.seed(self.args.seed)
+        
+
+        # get per question differences
+        results = {"question":[], "response": [], "axis_response": [], "topic": []}
+        llm_logs = []
+        response, axis_response, logs = self.propose_batch(df)
+        results["question"].extend(df['question'].tolist())
+        results["response"].extend([response] * len(df))
+        results["axis_response"].extend([axis_response] * len(df))
+        results["topic"].extend(df['topic'].tolist())
+        llm_logs.append(logs)
+
+        results = pd.DataFrame(results)
+        pairwise_differences = results[['question', 'response', 'axis_response']]
+        llm_logs = pd.DataFrame(llm_logs)
 
         # cluster per axis differences
         results['axis_description'] = results['axis_response'].apply(parse_bullets)
