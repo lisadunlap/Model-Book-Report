@@ -142,7 +142,7 @@ def main():
     rubric = pd.DataFrame()
 
     print(f"Running a VibeCheck on {len(df)} samples")
-    if args.eval_only:
+    if args.eval_only or args.rubric_path:
         print(f"Running eval only on {heldout_df.shape[0]} samples")
     elif args.axes:
         print(f"Running eval on {len(args.axes)} axes : {args.axes}")
@@ -183,6 +183,7 @@ def main():
         parent_axes, child_parent_map, tables = reducer.reduce(all_axis_descriptions)
         results['axis'] = child_parent_map
         axis_to_topic = results.groupby('axis')['topic'].apply(set).reset_index()
+        df.to_json(f"{args.save_dir}/{save_str}/{tag}-reducer-df.json", orient='records')
         results.to_csv(f"{args.save_dir}/{save_str}/{tag}-reducer_results.csv", index=False)
         axis_to_topic.to_json(f"{args.save_dir}/{save_str}/{tag}-axes_to_topic.json", orient='records')
         eval_axes = results['axis'].value_counts()[:min(args.num_eval, len(results['axis'].unique()))].index.tolist()
@@ -201,7 +202,13 @@ def main():
     # load if eval only
     if args.eval_only:
         eval_axes, axis_to_topic, topic_to_example, _, rubric = load_experiment(f"{args.save_dir}/{save_str}", tag, args)
-    if args.axes:
+    elif args.rubric_path:
+        rubric = pd.read_json(args.rubric_path)
+        eval_axes = rubric['axis'].unique().tolist()
+        axis_to_topic = rubric
+        topic_to_example = pd.DataFrame()
+        print(axis_to_topic)
+    elif args.axes:
         eval_axes = args.axes
         axis_to_topic = {"axis": [], "topic": []}
         for axis in eval_axes:
@@ -297,6 +304,8 @@ def main():
         #     y = pivot_df['label']
             
         #     return X, y
+
+        from components.metrics_utils import prepare_data_for_decision_tree, train_decision_tree, expand_dataframe_with_axes, train_individual_feature_impact
         
         print("RUNNING ON HELDOUT SET")
         args.early_stopping = False
@@ -305,61 +314,66 @@ def main():
         test_results.to_json(f"{args.save_dir}/{save_str}/{tag}-test-results.json", orient='records')
         test_metrics.to_json(f"{args.save_dir}/{save_str}/{tag}-test-metrics.json", orient='records')
         test_scoring_logs.to_json(f"{args.save_dir}/{save_str}/{tag}-test-scoring-logs.json", orient='records')
+
+        wandb.log({
+                    "test_summary_results": wandb.Table(dataframe=test_results), 
+                    "test_metrics": test_metrics,
+                    })
             
-        X_train, y_train = prepare_data_for_decision_tree(results, args.models)
-        X_test, y_test = prepare_data_for_decision_tree(test_results, args.models)
+        # X_train, y_train = prepare_data_for_decision_tree(results, args.models)
+        # X_test, y_test = prepare_data_for_decision_tree(test_results, args.models)
 
-        # if there are any test features which are all 0, remove them from the train and test data
-        zero_features = X_train.columns[X_train.sum() == 0]
-        print(f"Zero features: {zero_features}")
-        X_train = X_train.drop(columns=zero_features)
-        X_test = X_test.drop(columns=zero_features)
+        # # if there are any test features which are all 0, remove them from the train and test data
+        # zero_features = X_train.columns[X_train.sum() == 0]
+        # print(f"Zero features: {zero_features}")
+        # X_train = X_train.drop(columns=zero_features)
+        # X_test = X_test.drop(columns=zero_features)
 
-        # Train the Decision Tree Classifier
-        clf = DecisionTreeClassifier(random_state=42)
-        clf.fit(X_train, y_train)
-        y_pred = clf.predict(X_test)
-        y_train_pred = clf.predict(X_train)
-        # save image of decision tree
-        from sklearn.tree import plot_tree
-        # Create the figure with a specified size
-        fig = plt.figure(figsize=(40,25))
+        # # Train the Decision Tree Classifier
+        # clf = DecisionTreeClassifier(random_state=42)
+        # clf.fit(X_train, y_train)
+        # y_pred = clf.predict(X_test)
+        # y_train_pred = clf.predict(X_train)
+        # # save image of decision tree
+        # from sklearn.tree import plot_tree
+        # # Create the figure with a specified size
+        # fig = plt.figure(figsize=(40,25))
 
 
-        # Plot the tree with adjusted parameters for node and text size
-        plot_tree(clf, 
-                filled=True, 
-                feature_names=[c.replace("High", "\nHigh").replace("Low", "\nLow") for c in X_train.columns], 
-                class_names=list(args.models), 
-                fontsize=12,  # Set the font size
-                proportion=True,  # Set nodes to be proportional to the number of samples
-                rounded=True  # Round the nodes
-                )
-        plt.savefig(f"{args.save_dir}/{save_str}/{tag}-decision-tree.png", bbox_inches='tight')
-        wandb.log({"decision_tree": wandb.Image(f"{args.save_dir}/{save_str}/{tag}-decision-tree.png")})
+        # # Plot the tree with adjusted parameters for node and text size
+        # plot_tree(clf, 
+        #         filled=True, 
+        #         feature_names=[c.replace("High", "\nHigh").replace("Low", "\nLow") for c in X_train.columns], 
+        #         class_names=list(args.models), 
+        #         fontsize=12,  # Set the font size
+        #         proportion=True,  # Set nodes to be proportional to the number of samples
+        #         rounded=True  # Round the nodes
+        #         )
+        # plt.savefig(f"{args.save_dir}/{save_str}/{tag}-decision-tree.png", bbox_inches='tight')
+        # wandb.log({"decision_tree": wandb.Image(f"{args.save_dir}/{save_str}/{tag}-decision-tree.png")})
 
-        # Print and save classification report
-        print(classification_report(y_test, y_pred))
-        # save train and test classification reports as tables
-        wandb.log({"classification_report": wandb.Table(dataframe=pd.DataFrame(classification_report(y_test, y_pred, output_dict=True))), "classification_report_train": wandb.Table(dataframe=pd.DataFrame(classification_report(y_train, y_train_pred, output_dict=True)))})
-        pd.DataFrame(classification_report(y_test, y_pred, output_dict=True)).to_json(f"{args.save_dir}/{save_str}/{tag}-classification-report.json")
-        pd.DataFrame(classification_report(y_train, y_train_pred, output_dict=True)).to_json(f"{args.save_dir}/{save_str}/{tag}-classification-report-train.json")
+        # # Print and save classification report
+        # print(classification_report(y_test, y_pred))
+        # # save train and test classification reports as tables
+        # wandb.log({"classification_report": wandb.Table(dataframe=pd.DataFrame(classification_report(y_test, y_pred, output_dict=True))), "classification_report_train": wandb.Table(dataframe=pd.DataFrame(classification_report(y_train, y_train_pred, output_dict=True)))})
+        # pd.DataFrame(classification_report(y_test, y_pred, output_dict=True)).to_json(f"{args.save_dir}/{save_str}/{tag}-classification-report.json")
+        # pd.DataFrame(classification_report(y_train, y_train_pred, output_dict=True)).to_json(f"{args.save_dir}/{save_str}/{tag}-classification-report-train.json")
         
-        # train logistic regression
-        from sklearn.linear_model import LogisticRegression
-        clf = LogisticRegression(random_state=42)
-        clf.fit(X_train, y_train)
-        y_pred = clf.predict(X_test)
-        y_train_pred = clf.predict(X_train)
-        # Print and save classification report
-        print("Logistic Regression")
-        print(classification_report(y_test, y_pred))
-        # save train and test classification reports as tables
-        wandb.log({"classification_report_logistic": wandb.Table(dataframe=pd.DataFrame(classification_report(y_test, y_pred, output_dict=True))), "classification_report_logistic_train": wandb.Table(dataframe=pd.DataFrame(classification_report(y_train, y_train_pred, output_dict=True)))})
-        pd.DataFrame(classification_report(y_test, y_pred, output_dict=True)).to_json(f"{args.save_dir}/{save_str}/{tag}-classification-report-logistic.json")
-        pd.DataFrame(classification_report(y_train, y_train_pred, output_dict=True)).to_json(f"{args.save_dir}/{save_str}/{tag}-classification-report-logistic-train.json")
-        # save test predictions and true labels
-        pd.DataFrame({"true": y_test, "pred": y_pred}).to_json(f"{args.save_dir}/{save_str}/{tag}-predictions.json")
+        # # train logistic regression
+        # from sklearn.linear_model import LogisticRegression
+        # clf = LogisticRegression(random_state=42)
+        # clf.fit(X_train, y_train)
+        # y_pred = clf.predict(X_test)
+        # y_train_pred = clf.predict(X_train)
+        # # Print and save classification report
+        # print("Logistic Regression")
+        # print(classification_report(y_test, y_pred))
+        # # save train and test classification reports as tables
+        # wandb.log({"classification_report_logistic": wandb.Table(dataframe=pd.DataFrame(classification_report(y_test, y_pred, output_dict=True))), "classification_report_logistic_train": wandb.Table(dataframe=pd.DataFrame(classification_report(y_train, y_train_pred, output_dict=True)))})
+        # pd.DataFrame(classification_report(y_test, y_pred, output_dict=True)).to_json(f"{args.save_dir}/{save_str}/{tag}-classification-report-logistic.json")
+        # pd.DataFrame(classification_report(y_train, y_train_pred, output_dict=True)).to_json(f"{args.save_dir}/{save_str}/{tag}-classification-report-logistic-train.json")
+        # # save test predictions and true labels
+        # pd.DataFrame({"true": y_test, "pred": y_pred}).to_json(f"{args.save_dir}/{save_str}/{tag}-predictions.json")
 
     wandb.finish()
 
